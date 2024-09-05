@@ -11,7 +11,7 @@ func main() {
 	philoCount := 1
 	forks := make([]Fork, 2)
 	for index := range forks {
-		forks[index].occupationCh = make(chan int)
+		forks[index].occupationCh = make(chan int, 2)
 	}
 
 	philosophers := make([]Philosopher, 1)
@@ -21,7 +21,7 @@ func main() {
 		//p.Rightfork = forks[index]
 		//p.Leftfork = forks[index+1]
 		fmt.Print("Eat is about to be called")
-		go philosophers[index].Eat(&forks[index], &forks[(index+1)%philoCount])
+		go philosophers[index].Eat(&forks[index], &forks[(index+1)%philoCount], &sync.WaitGroup{})
 		// Wait here
 		fmt.Print("\nP has eaten this much: ", philosophers[index].eatCount)
 	}
@@ -60,16 +60,18 @@ func (philo *Philosopher) think(wg *sync.WaitGroup) { // think delay 1-2
 
 }
 
-func (philo *Philosopher) Eat(Fork1 *Fork, Fork2 *Fork) {
+func (philo *Philosopher) Eat(Fork1 *Fork, Fork2 *Fork, wg *sync.WaitGroup) {
+	defer wg.Done() // Mark as done for the waitgroup when finished
 	// receive forks from channel
 	// lock forks
+	fmt.Print("\nAbout to send value to channels")
 	Fork1.occupationCh <- 1
 	Fork2.occupationCh <- 1
 
-	fmt.Print("Before fork go routines")
+	fmt.Print("\nBefore fork go routines")
 	go Fork1.UseFork()
 	go Fork2.UseFork()
-	fmt.Print("After fork go routines")
+	fmt.Print("\nAfter fork go routines")
 
 	forkOcuppationOne := <-Fork1.occupationCh
 	forkOcuppationTwo := <-Fork2.occupationCh
