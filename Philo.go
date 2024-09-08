@@ -21,7 +21,10 @@ func main() {
 		//p.Rightfork = forks[index]
 		//p.Leftfork = forks[index+1]
 		fmt.Print("Eat is about to be called")
-		go philosophers[index].Eat(&forks[index], &forks[(index+1)%philoCount], &sync.WaitGroup{})
+
+		// Add philosopher to waitgroup, so that it knows to wait for philo to finish
+		wg.Add(1)
+		go philosophers[index].Eat(&forks[index], &forks[(index+1)%philoCount], &wg)
 		// Wait here
 		fmt.Print("\nP has eaten this much: ", philosophers[index].eatCount)
 	}
@@ -49,12 +52,11 @@ type Philosopher struct {
 	// RightFork chan Fork // Use a channel to request the right fork
 }
 
-func (philo *Philosopher) think(wg *sync.WaitGroup) { // think delay 1-2
+func (philo *Philosopher) think() { // think delay 1-2
 	// wait for forks are ready
 	// receive from channel whether fork is being used by check whether it is locked?
 	// recieve fork here from channel lock funch EAT
 
-	defer wg.Done()
 	fmt.Println("Philosopher", philo.id, "is thinking")
 	time.Sleep(5 * time.Second)
 
@@ -87,7 +89,7 @@ func (philo *Philosopher) Eat(Fork1 *Fork, Fork2 *Fork, wg *sync.WaitGroup) {
 	Fork1.occupationCh <- 0
 	Fork2.occupationCh <- 0
 
-	philo.think(&sync.WaitGroup{})
+	philo.think()
 }
 
 type Fork struct {
