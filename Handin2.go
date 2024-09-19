@@ -60,6 +60,10 @@ func StartClient(client *Client, server *Server) {
 	var recievedSEQ = <-server.seqChannel
 	if recievedACK == client.sequenceNumber+1 {
 		fmt.Printf("%s %d %s\n", "The client has received the correct sequence number: ", recievedACK, " from server")
+		// send servers sequence number back incremented
+		server.ackChannel <- recievedSEQ + 1
+		// send the clients own incremented sequence number back
+		server.seqChannel <- recievedACK
 
 	} else {
 		// Handshake failed (only used for error handling)
@@ -67,11 +71,6 @@ func StartClient(client *Client, server *Server) {
 		fmt.Printf("%s %d %s\n", "The client will loop back and restart the handshake")
 		// If client receives wrong sequence number, loop back and start handshake over again
 	}
-
-	// send servers sequence number back incremented
-	server.ackChannel <- recievedSEQ + 1
-	// send the clients own incremented sequence number back
-	server.seqChannel <- recievedACK
 }
 
 func StartServer(server *Server) {
