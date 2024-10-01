@@ -18,7 +18,7 @@ type server struct {
 }
 
 // Implement the GetTime method
-func (s *server) GetTime(ctx context.Context, req *Exercise05.TimeRequest) (*Exercise05.TimeResponse, error) {
+func (s *server) GetCurrentTime(ctx context.Context, req *Exercise05.TimeRequest) (*Exercise05.TimeResponse, error) {
 	// Get the current time
 	currentTime := time.Now().Format(time.RFC3339)
 
