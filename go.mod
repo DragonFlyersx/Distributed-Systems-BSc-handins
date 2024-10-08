@@ -1,4 +1,4 @@
-module bob
+module main
 
 go 1.23.0
 

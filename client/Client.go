@@ -2,67 +2,68 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"go/printer"
 	"log"
 	"os"
-	"time"
 
-	"bob/Exercise05"
+	"main/Handin3"
 
 	"google.golang.org/grpc"
 )
 
-func getTimeFromService(address string) (string, time.Duration, error) {
-	// Start tracking time for round-trip measurement
-	start := time.Now()
-
+func PublishMessage(address string, message string) {
 	// Connect to the gRPC server
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		return "", 0, err
+		print(err)
 	}
 	defer conn.Close()
 
 	// Create a client
-	client := Exercise05.NewTimeServiceClient(conn)
+	client := Handin3.NewChittyChatClient(conn)
 
-	// Call the GetTime method
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	resp, err := client.GetCurrentTime(ctx, &Exercise05.TimeRequest{})
-	if err != nil {
-		return "", 0, err
+	// Create a ChatMessage object
+	chatMessage := &Handin3.ChatMessage{
+		Message: message,
 	}
 
-	// Measure the round-trip time
-	rtt := time.Since(start)
+	// Call the publish message method
+	client.PublishMessage(context.Background(), chatMessage)
+	
+}
 
-	return resp.CurrentTime, rtt, nil
+func ReceiveMessage(address string) {
+	// Connect to the gRPC server
+	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+	defer conn.Close()
+
+	// Create a client
+	client := Handin3.NewChittyChatClient(conn)
+
+	// Call the server
+	stream, err := client.BroadcastMessage(context.Background(), &Handin3.Empty{})
+	if err != nil {
+		log.Fatalf("did not connect: %v", err)
+	}
+
+	// Read message from stream
+	for {
+		chatMessage, err := stream.Recv()
+		if err != nil {
+			log.Fatalf("did not connect: %v", err)
+		}
+		fmt.Printf("Received message: %s\n", chatMessage.Message)
+	}
 }
 
 func main() {
-	// List of service addresses
-	services := []string{
-		"10.26.18.67:50051", // Replace with actual IPs and ports
-	}
+	address := "localhost:50051" // address to server
 
-	// Open a log file to record the times
-	logFile, err := os.OpenFile("time_log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
-	}
-	defer logFile.Close()
+	ReceiveMessage(address) // Maybe start go routine for receiving messages else we just call the method here
 
-	logger := log.New(logFile, "", log.LstdFlags)
-
-	for _, service := range services {
-		timeValue, rtt, err := getTimeFromService(service)
-		if err != nil {
-			log.Printf("Error getting time from %s: %v", service, err)
-			continue
-		}
-
-		logger.Printf("Time from %s: %s | RTT: %v\n", service, timeValue, rtt)
-		log.Printf("Time from %s: %s | RTT: %v\n", service, timeValue, rtt)
-	}
+	// some sort of loop or condition to keep the method alive indefinitely
 }

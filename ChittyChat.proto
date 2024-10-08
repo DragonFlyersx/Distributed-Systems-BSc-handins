@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package log;
+
+option go_package = "/Handin3";
+
+service ChittyChat {
+    rpc BroadcastMessage(Empty) returns (stream ChatMessage);
+    rpc PublishMessage(ChatMessage) returns (Empty);
+}
+
+message ChatMessage {
+    string message = 1;
+}
+
+message Empty {}
