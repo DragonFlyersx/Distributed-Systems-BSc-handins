@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"go/printer"
 	"log"
-	"os"
 
 	"main/Handin3"
 
@@ -30,7 +28,7 @@ func PublishMessage(address string, message string) {
 
 	// Call the publish message method
 	client.PublishMessage(context.Background(), chatMessage)
-	
+
 }
 
 func ReceiveMessage(address string) {
