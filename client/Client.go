@@ -58,13 +58,14 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 }
 
 func main() {
-	address := "192.168.0.72:50051" // address to server
+	address := "localhost:50051" // address to server
+	// address to server
 	//var lamportTime *int
 
 	// Connect to the gRPC server
 	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Fatalf("Failed to connect to server at %s: %v", address, err)
 	}
 	defer conn.Close()
 
