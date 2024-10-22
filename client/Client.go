@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
+	"os"
 
 	"main/Handin3"
 
@@ -13,8 +15,14 @@ import (
 func ListenForMessage(client Handin3.ChittyChatClient) {
 
 	for {
-		var message string
-		fmt.Scanln(&message)
+		reader := bufio.NewReader(os.Stdin)
+
+		message, err := reader.ReadString('\n')
+		if err != nil {
+			log.Fatalf("Error reading input: %v", err)
+		}
+
+		message = message[:len(message)-1] // Remove newline character
 
 		if message == "server.exit" {
 			// Client should leave from server
@@ -54,12 +62,14 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 			log.Fatalf("No messages to recieve: %v", err)
 		}
 		fmt.Printf("Received message: %s\n", chatMessage.Message)
+		//lamportTime = chatMessage.Timestamp
 	}
 }
 
 func main() {
 	address := "localhost:50051" // Address to the server
-	//var lamportTime *int
+
+	//var lamportTime int
 
 	// Connect to the gRPC server
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -71,7 +81,7 @@ func main() {
 	// Create a client
 	client := Handin3.NewChittyChatClient(conn)
 
-	PublishMessage(client, "Client Joined!")
+	//PublishMessage(client, "Client Joined!")
 
 	go ReceiveMessage(client) // Listen for any messages from server
 

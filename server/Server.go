@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"strconv"
 
 	"main/Handin3" // Import generated from the .proto file
 
@@ -14,31 +15,36 @@ import (
 type server struct {
 	Handin3.ChittyChatServer
 	// Handin3.ChatMessage latestMessage := nil
-	clients map[Handin3.ChittyChat_BroadcastMessageServer]bool
+	clients     map[Handin3.ChittyChat_BroadcastMessageServer]bool
+	lamportTime int64
 }
 
 // Constructor for the server
 func newServer() *server {
 	return &server{
-		clients: make(map[Handin3.ChittyChat_BroadcastMessageServer]bool), // Initialize the map
+		clients: make(map[Handin3.ChittyChat_BroadcastMessageServer]bool), // Instantiate the map
 	}
 }
 
 // Implement the BroadcastMessage method of the ChittyChatServer interface
 // Implement the BroadcastMessage method of the ChittyChatServer interface
 func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
-	// // After the stream ends, latestMessage will hold the last message received
-	// if s.latestMessage != nil {
-	// 	log.Printf("Latest message: %v", s.latestMessage.GetMessage())
-	// } else {
-	// 	log.Println("No messages received.")
-	// }
-	// // put in stream
-
-	// return nil
 	// Register the client
 	s.clients[stream] = true
-	defer func() { delete(s.clients, stream) }() // Clean up on disconnect
+	JoinMessage := &Handin3.ChatMessage{
+		Message:   "Participant Joined Chitty-Chat at Lamport time " + strconv.FormatInt(int64(s.lamportTime), 10),
+		Timestamp: s.lamportTime,
+	}
+	s.PublishMessage(stream.Context(), JoinMessage)
+
+	defer func() {
+		DisconnectMessage := &Handin3.ChatMessage{
+			Message:   "Participant Left Chitty-Chat at Lamport time " + strconv.FormatInt(int64(s.lamportTime), 10),
+			Timestamp: s.lamportTime,
+		}
+		s.PublishMessage(stream.Context(), DisconnectMessage)
+		delete(s.clients, stream)
+	}() // Clean up on disconnect
 
 	// Keep the stream open to send messages to this client
 	for {
