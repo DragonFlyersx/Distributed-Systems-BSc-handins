@@ -31,6 +31,7 @@ func newServer() *server {
 func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
 	// Register the client
 	s.clients[stream] = true
+	s.lamportTime += 1
 	JoinMessage := &Handin3.ChatMessage{
 		Message:   "Participant Joined Chitty-Chat at Lamport time " + strconv.FormatInt(int64(s.lamportTime), 10),
 		Timestamp: s.lamportTime,
@@ -38,12 +39,13 @@ func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyCha
 	s.PublishMessage(stream.Context(), JoinMessage)
 
 	defer func() {
+		delete(s.clients, stream)
+		s.lamportTime += 1
 		DisconnectMessage := &Handin3.ChatMessage{
 			Message:   "Participant Left Chitty-Chat at Lamport time " + strconv.FormatInt(int64(s.lamportTime), 10),
 			Timestamp: s.lamportTime,
 		}
 		s.PublishMessage(stream.Context(), DisconnectMessage)
-		delete(s.clients, stream)
 	}() // Clean up on disconnect
 
 	// Keep the stream open to send messages to this client
@@ -60,8 +62,18 @@ func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (
 	// increment The logical timestamp
 
 	// Log the message received
-	log.Println("Message received:", msg.GetMessage())
+	log.Printf("Server Received message: \"%s\" - %d \n", msg.Message, s.lamportTime)
 
+	// Find maximum lamport time and increment
+	if s.lamportTime < msg.Timestamp {
+		s.lamportTime = msg.Timestamp + 1
+		log.Print("incrementing lamport time")
+
+	} else { 
+		s.lamportTime += 1
+		log.Print("incrementing lamport time")
+	}
+	
 	// Broadcast the message to all connected clients
 	for client := range s.clients {
 		if err := client.Send(msg); err != nil {

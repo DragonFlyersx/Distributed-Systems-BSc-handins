@@ -3,14 +3,22 @@ package main
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"log"
 	"os"
-
+	"sync"
 	"main/Handin3"
 
 	"google.golang.org/grpc"
 )
+
+var lamportTime int64 = 0
+var lamportMutex sync.Mutex
+
+func incrementLamportTime() {
+	lamportMutex.Lock()
+	lamportTime++
+	lamportMutex.Unlock()
+}
 
 func ListenForMessage(client Handin3.ChittyChatClient) {
 
@@ -37,8 +45,10 @@ func ListenForMessage(client Handin3.ChittyChatClient) {
 func PublishMessage(client Handin3.ChittyChatClient, message string) {
 	// set local lamport from message
 	// Create a ChatMessage object
+	lamportTime += 1
 	chatMessage := &Handin3.ChatMessage{
 		Message: message,
+		Timestamp: lamportTime,
 	}
 
 	// Call the publish message method
@@ -61,8 +71,15 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 		if err != nil {
 			log.Fatalf("No messages to recieve: %v", err)
 		}
-		fmt.Printf("Received message: %s\n", chatMessage.Message)
-		//lamportTime = chatMessage.Timestamp
+
+		// Find maximum lamport time and increment
+		if lamportTime < chatMessage.Timestamp {
+			lamportTime = chatMessage.Timestamp + 1
+		} else { 
+			lamportTime += 1
+		}
+
+		log.Printf("Client Received message: '%s' - %d \n", chatMessage.Message, lamportTime)
 	}
 }
 
@@ -80,8 +97,6 @@ func main() {
 
 	// Create a client
 	client := Handin3.NewChittyChatClient(conn)
-
-	//PublishMessage(client, "Client Joined!")
 
 	go ReceiveMessage(client) // Listen for any messages from server
 
