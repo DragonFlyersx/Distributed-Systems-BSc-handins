@@ -100,7 +100,7 @@ func main() {
 	Handin3.RegisterChittyChatServer(grpcServer, &server{})
 
 	log.Printf("ChittyChat server is running on port %s", port)
-
+	log.Println("Server is ready to accept connections on port", port)
 	// Start serving requests
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
