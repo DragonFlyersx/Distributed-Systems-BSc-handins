@@ -44,33 +44,34 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 	// Call the server
 	stream, err := client.BroadcastMessage(context.Background(), &Handin3.Empty{})
 	if err != nil {
-		log.Fatalf("did not connect: %v", err)
+		log.Fatalf("did not connect SERVER CALL RECIEVE: %v", err)
 	}
 
 	// Read message from stream
 	for {
 		chatMessage, err := stream.Recv()
 		if err != nil {
-			log.Fatalf("did not connect: %v", err)
+			log.Fatalf("No messages to recieve: %v", err)
 		}
 		fmt.Printf("Received message: %s\n", chatMessage.Message)
 	}
 }
 
 func main() {
-	address := "localhost:50051" // address to server
-	// address to server
+	address := "localhost:50051" // Address to the server
 	//var lamportTime *int
 
 	// Connect to the gRPC server
-	conn, err := grpc.Dial(address, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Failed to connect to server at %s: %v", address, err)
+		log.Fatalf("did not connect SERVER: %v", err)
 	}
 	defer conn.Close()
 
 	// Create a client
 	client := Handin3.NewChittyChatClient(conn)
+
+	PublishMessage(client, "Client Joined!")
 
 	go ReceiveMessage(client) // Listen for any messages from server
 

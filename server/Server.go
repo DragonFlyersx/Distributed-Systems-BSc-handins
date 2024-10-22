@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 
@@ -15,73 +14,57 @@ import (
 type server struct {
 	Handin3.ChittyChatServer
 	// Handin3.ChatMessage latestMessage := nil
-	latestMessage *Handin3.ChatMessage
+	clients map[Handin3.ChittyChat_BroadcastMessageServer]bool
+}
+
+// Constructor for the server
+func newServer() *server {
+	return &server{
+		clients: make(map[Handin3.ChittyChat_BroadcastMessageServer]bool), // Initialize the map
+	}
 }
 
 // Implement the BroadcastMessage method of the ChittyChatServer interface
+// Implement the BroadcastMessage method of the ChittyChatServer interface
 func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
-	//var latestMessage *Handin3.ChatMessage
+	// // After the stream ends, latestMessage will hold the last message received
+	// if s.latestMessage != nil {
+	// 	log.Printf("Latest message: %v", s.latestMessage.GetMessage())
+	// } else {
+	// 	log.Println("No messages received.")
+	// }
+	// // put in stream
 
-	/*for {
-		// Receive message from the stream
-		message, err := stream.Recv()
-		if err == io.EOF {
-			// If the stream is finished, break the loop
-			break
+	// return nil
+	// Register the client
+	s.clients[stream] = true
+	defer func() { delete(s.clients, stream) }() // Clean up on disconnect
+
+	// Keep the stream open to send messages to this client
+	for {
+		// Optionally wait for a disconnection
+		if err := stream.Context().Err(); err != nil {
+			break // Exit the loop if the context is done
 		}
-		if err != nil {
-			// Handle error if needed
-			return err
-		}
-
-		// Process the received message (save it as the latest message)
-		latestMessage = message
 	}
-
-	// After the stream ends, latestMessage will hold the last message received
-	if latestMessage != nil {
-		log.Printf("Latest message: %v", latestMessage.GetMessage())
-	} else {
-		log.Println("No messages received.")
-	}
-	*/
 	return nil
 }
 
 func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (*Handin3.Empty, error) {
 	// increment The logical timestamp
-	s.latestMessage = msg
+
+	// Log the message received
 	log.Println("Message received:", msg.GetMessage())
 
+	// Broadcast the message to all connected clients
+	for client := range s.clients {
+		if err := client.Send(msg); err != nil {
+			log.Printf("Failed to send message to a client: %v", err)
+			// Optionally handle client disconnection
+		}
+	}
+
 	return &Handin3.Empty{}, nil
-}
-
-// This function implements the server-side logic for streaming messages to the client
-func (s *server) BroadcastMessages(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
-	messages := []string{
-		"Hello from server",
-		"This is the second message",
-		"And here comes the third message",
-	}
-
-	for _, msg := range messages {
-		// Send each message to the client over the stream
-		chatMessage := &Handin3.ChatMessage{
-			Message: msg,
-		}
-
-		log.Printf("Sending message: %v", chatMessage.Message)
-
-		// Send the message
-		if err := stream.Send(chatMessage); err != nil {
-			log.Printf("Failed to send message: %v", err)
-			return fmt.Errorf("failed to send message: %v", err)
-		}
-	}
-
-	log.Println("BroadcastMessages completed successfully")
-
-	return nil // Close the stream when done
 }
 
 // Keep the main function in the server package
@@ -97,7 +80,7 @@ func main() {
 	grpcServer := grpc.NewServer()
 
 	// Register the TimeService with the gRPC server  // changed
-	Handin3.RegisterChittyChatServer(grpcServer, &server{})
+	Handin3.RegisterChittyChatServer(grpcServer, newServer())
 
 	log.Printf("ChittyChat server is running on port %s", port)
 	log.Println("Server is ready to accept connections on port", port)
