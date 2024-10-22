@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 
@@ -14,14 +14,15 @@ import (
 // Define the server struct Keep the server struct in the server package
 type server struct {
 	Handin3.ChittyChatServer
-    Handin3.ChatMessage latestMessage := nil
+	// Handin3.ChatMessage latestMessage := nil
+	latestMessage *Handin3.ChatMessage
 }
 
 // Implement the BroadcastMessage method of the ChittyChatServer interface
 func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
-	var latestMessage *Handin3.ChatMessage
+	//var latestMessage *Handin3.ChatMessage
 
-	for {
+	/*for {
 		// Receive message from the stream
 		message, err := stream.Recv()
 		if err == io.EOF {
@@ -43,18 +44,21 @@ func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyCha
 	} else {
 		log.Println("No messages received.")
 	}
-
+	*/
 	return nil
 }
 
-func (s *server) PublishMessage (ctx context.Context, msg *ChatMessage) {
-    latestMessage = msg.Get
-    return nil;
+func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (*Handin3.Empty, error) {
+	// increment The logical timestamp
+	s.latestMessage = msg
+	log.Println("Message received:", msg.GetMessage())
+
+	return &Handin3.Empty{}, nil
 }
 
 // This function implements the server-side logic for streaming messages to the client
 func (s *server) BroadcastMessages(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
-	messages := []string{ 
+	messages := []string{
 		"Hello from server",
 		"This is the second message",
 		"And here comes the third message",
@@ -66,21 +70,19 @@ func (s *server) BroadcastMessages(empty *Handin3.Empty, stream Handin3.ChittyCh
 			Message: msg,
 		}
 
-        log.Printf("Sending message: %v", chatMessage.Message)
+		log.Printf("Sending message: %v", chatMessage.Message)
 
 		// Send the message
 		if err := stream.Send(chatMessage); err != nil {
-            log.Printf("Failed to send message: %v", err)
+			log.Printf("Failed to send message: %v", err)
 			return fmt.Errorf("failed to send message: %v", err)
 		}
 	}
 
-    log.Println("BroadcastMessages completed successfully")
+	log.Println("BroadcastMessages completed successfully")
 
 	return nil // Close the stream when done
 }
-
-
 
 // Keep the main function in the server package
 func main() {
