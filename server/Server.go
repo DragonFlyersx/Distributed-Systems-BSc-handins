@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -13,10 +14,11 @@ import (
 // Define the server struct Keep the server struct in the server package
 type server struct {
 	Handin3.ChittyChatServer
+    Handin3.ChatMessage latestMessage := nil
 }
 
 // Implement the BroadcastMessage method of the ChittyChatServer interface
-func (s *server) BroadcastMessage(*Handin3.Empty, grpc.ServerStreamingServer[Handin3.ChatMessage]) error {
+func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
 	var latestMessage *Handin3.ChatMessage
 
 	for {
@@ -44,6 +46,41 @@ func (s *server) BroadcastMessage(*Handin3.Empty, grpc.ServerStreamingServer[Han
 
 	return nil
 }
+
+func (s *server) PublishMessage (ctx context.Context, msg *ChatMessage) {
+    latestMessage = msg.Get
+    return nil;
+}
+
+// This function implements the server-side logic for streaming messages to the client
+func (s *server) BroadcastMessages(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
+	messages := []string{ 
+		"Hello from server",
+		"This is the second message",
+		"And here comes the third message",
+	}
+
+	for _, msg := range messages {
+		// Send each message to the client over the stream
+		chatMessage := &Handin3.ChatMessage{
+			Message: msg,
+		}
+
+        log.Printf("Sending message: %v", chatMessage.Message)
+
+		// Send the message
+		if err := stream.Send(chatMessage); err != nil {
+            log.Printf("Failed to send message: %v", err)
+			return fmt.Errorf("failed to send message: %v", err)
+		}
+	}
+
+    log.Println("BroadcastMessages completed successfully")
+
+	return nil // Close the stream when done
+}
+
+
 
 // Keep the main function in the server package
 func main() {

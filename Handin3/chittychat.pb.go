@@ -4,6 +4,8 @@
 // 	protoc        v5.29.0--rc1
 // source: chittychat.proto
 
+// FOR SERVER
+
 package Handin3
 
 import (
