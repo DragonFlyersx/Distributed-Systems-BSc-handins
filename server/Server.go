@@ -27,7 +27,6 @@ func newServer() *server {
 }
 
 // Implement the BroadcastMessage method of the ChittyChatServer interface
-// Implement the BroadcastMessage method of the ChittyChatServer interface
 func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
 	// Register the client
 	s.clients[stream] = true

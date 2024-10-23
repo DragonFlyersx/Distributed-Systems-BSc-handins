@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"context"
 	"log"
+	"main/Handin3"
 	"os"
 	"sync"
-	"main/Handin3"
 
 	"google.golang.org/grpc"
 )
@@ -44,16 +44,19 @@ func ListenForMessage(client Handin3.ChittyChatClient) {
 
 func PublishMessage(client Handin3.ChittyChatClient, message string) {
 	// set local lamport from message
-	// Create a ChatMessage object
-	lamportTime += 1
-	chatMessage := &Handin3.ChatMessage{
-		Message: message,
-		Timestamp: lamportTime,
+	if len(message) < 128 {
+		// Create a ChatMessage object
+		lamportTime += 1
+		chatMessage := &Handin3.ChatMessage{
+			Message:   message,
+			Timestamp: lamportTime,
+		}
+
+		// Call the publish message method
+		client.PublishMessage(context.Background(), chatMessage)
+	} else {
+		print("Message is over 128 characters.")
 	}
-
-	// Call the publish message method
-	client.PublishMessage(context.Background(), chatMessage)
-
 }
 
 func ReceiveMessage(client Handin3.ChittyChatClient) {
@@ -75,7 +78,7 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 		// Find maximum lamport time and increment
 		if lamportTime < chatMessage.Timestamp {
 			lamportTime = chatMessage.Timestamp + 1
-		} else { 
+		} else {
 			lamportTime += 1
 		}
 
@@ -84,7 +87,7 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 }
 
 func main() {
-	address := "localhost:50051" // Address to the server
+	address := "192.168.127.41:50051" // Address to the server
 
 	//var lamportTime int
 
