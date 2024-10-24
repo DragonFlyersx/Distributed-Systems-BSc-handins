@@ -77,7 +77,7 @@ func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (
 		}
 
 		// increase the lamport time after recieving the message
-		log.Printf("LP: %d: Server Received message: \"%s\"\n", s.lamportTime, receivedMessage.Message)
+		log.Printf("LP: %d: Server Received message: \"%s\" From user: %s \n", s.lamportTime, receivedMessage.Message, receivedMessage.ClientID)
 	}
 
 	// Increase the lamport time when resending to the clients
