@@ -67,16 +67,18 @@ func (s *server) BroadcastMessage(clientID *Handin3.ClientID, stream Handin3.Chi
 func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (*Handin3.Empty, error) {
 	// increment The logical timestamp
 	var receivedMessage = msg
-	// Find maximum lamport time and increment
-	if s.lamportTime < receivedMessage.Timestamp {
-		s.lamportTime = receivedMessage.Timestamp + 1
 
-	} else {
-		s.lamportTime += 1
+	if receivedMessage.ClientID != "Server" {
+		// Find maximum lamport time and increment
+		if s.lamportTime < receivedMessage.Timestamp {
+			s.lamportTime = receivedMessage.Timestamp + 1
+		} else {
+			s.lamportTime += 1
+		}
+
+		// increase the lamport time after recieving the message
+		log.Printf("LP: %d: Server Received message: \"%s\"\n", s.lamportTime, receivedMessage.Message)
 	}
-
-	// increase the lamport time after recieving the message
-	log.Printf("LP: %d: Server Received message: \"%s\"\n", s.lamportTime, receivedMessage.Message)
 
 	// Increase the lamport time when resending to the clients
 	s.lamportTime += 1

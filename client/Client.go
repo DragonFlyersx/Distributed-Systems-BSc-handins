@@ -8,19 +8,11 @@ import (
 	"main/Handin3"
 	"os"
 	"strings"
-	"sync"
 
 	"google.golang.org/grpc"
 )
 
 var lamportTime int64 = 0
-var lamportMutex sync.Mutex
-
-func incrementLamportTime() {
-	lamportMutex.Lock()
-	lamportTime++
-	lamportMutex.Unlock()
-}
 
 func ListenForMessage(client Handin3.ChittyChatClient, ClientID string) {
 
