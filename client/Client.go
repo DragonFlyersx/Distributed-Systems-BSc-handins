@@ -6,6 +6,7 @@ import (
 	"log"
 	"main/Handin3"
 	"os"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -31,31 +32,24 @@ func ListenForMessage(client Handin3.ChittyChatClient) {
 		}
 
 		message = message[:len(message)-1] // Remove newline character
-
-		if message == "server.exit" {
-			// Client should leave from server
-			break
-		} else if message != "" {
-			PublishMessage(client, message)
-		}
-
+		PublishMessage(client, message)
 	}
 }
 
 func PublishMessage(client Handin3.ChittyChatClient, message string) {
 	// set local lamport from message
-	if len(message) < 128 {
+	if len(message) <= 128 && len(message) != 0 {
 		// Create a ChatMessage object
 		lamportTime += 1
 		chatMessage := &Handin3.ChatMessage{
-			Message:   message,
+			Message:   strings.TrimSuffix(message, "\r"), // remove carriage return from message to avoid new line
 			Timestamp: lamportTime,
 		}
 
 		// Call the publish message method
 		client.PublishMessage(context.Background(), chatMessage)
 	} else {
-		print("Message is over 128 characters.")
+		print("Message must be between 1 and 128 characters.\n")
 	}
 }
 
@@ -83,11 +77,12 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 		}
 
 		log.Printf("Client Received message: '%s' - %d \n", chatMessage.Message, lamportTime)
+
 	}
 }
 
 func main() {
-	address := "192.168.127.41:50051" // Address to the server
+	address := "localhost:50051" // Address to the server
 
 	//var lamportTime int
 

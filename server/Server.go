@@ -66,13 +66,11 @@ func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (
 	// Find maximum lamport time and increment
 	if s.lamportTime < msg.Timestamp {
 		s.lamportTime = msg.Timestamp + 1
-		log.Print("incrementing lamport time")
 
-	} else { 
+	} else {
 		s.lamportTime += 1
-		log.Print("incrementing lamport time")
 	}
-	
+
 	// Broadcast the message to all connected clients
 	for client := range s.clients {
 		if err := client.Send(msg); err != nil {
