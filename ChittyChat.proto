@@ -5,13 +5,18 @@ package log;
 option go_package = "/Handin3";
 
 service ChittyChat {
-    rpc BroadcastMessage (Empty) returns (stream ChatMessage);
+    rpc BroadcastMessage (ClientID) returns (stream ChatMessage);
     rpc PublishMessage (ChatMessage) returns (Empty);
 }
 
 message ChatMessage {
     string message = 1;
     int64 timestamp = 2;
+    string ClientID = 3;
+}
+
+message ClientID {
+    string clientID = 1;
 }
 
 message Empty {}

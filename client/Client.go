@@ -22,7 +22,7 @@ func incrementLamportTime() {
 	lamportMutex.Unlock()
 }
 
-func ListenForMessage(client Handin3.ChittyChatClient) {
+func ListenForMessage(client Handin3.ChittyChatClient, ClientID string) {
 
 	for {
 		reader := bufio.NewReader(os.Stdin)
@@ -36,18 +36,20 @@ func ListenForMessage(client Handin3.ChittyChatClient) {
 		fmt.Print("\033[A\033[2K") // Move cursor up and clear the line
 
 		message = message[:len(message)-1] // Remove newline character
-		PublishMessage(client, message)
+		PublishMessage(client, message, ClientID)
 	}
 }
 
-func PublishMessage(client Handin3.ChittyChatClient, message string) {
+func PublishMessage(client Handin3.ChittyChatClient, message string, ClientID string) {
 	// set local lamport from message
+
 	if len(message) <= 128 && len(message) != 0 {
 		// Create a ChatMessage object
 		lamportTime += 1
 		chatMessage := &Handin3.ChatMessage{
 			Message:   strings.TrimSuffix(message, "\r"), // remove carriage return from message to avoid new line
 			Timestamp: lamportTime,
+			ClientID:  ClientID,
 		}
 
 		// Call the publish message method
@@ -57,11 +59,10 @@ func PublishMessage(client Handin3.ChittyChatClient, message string) {
 	}
 }
 
-func ReceiveMessage(client Handin3.ChittyChatClient) {
+func ReceiveMessage(client Handin3.ChittyChatClient, clientID string) {
 	// set local lamport from message
-
 	// Call the server
-	stream, err := client.BroadcastMessage(context.Background(), &Handin3.Empty{})
+	stream, err := client.BroadcastMessage(context.Background(), &Handin3.ClientID{ClientID: clientID})
 	if err != nil {
 		log.Fatalf("did not connect SERVER CALL RECIEVE: %v", err)
 	}
@@ -90,6 +91,14 @@ func main() {
 
 	//var lamportTime int
 
+	var clientID string
+	clientID, err := os.Hostname()
+	if err != nil {
+		//log.Fatalf("Error getting hostname: %v", err)
+		log.Printf("Error getting hostname: %v", err)
+		clientID = "Unknown"
+	}
+
 	// Connect to the gRPC server
 	conn, err := grpc.Dial(address, grpc.WithInsecure())
 	if err != nil {
@@ -100,9 +109,9 @@ func main() {
 	// Create a client
 	client := Handin3.NewChittyChatClient(conn)
 
-	go ReceiveMessage(client) // Listen for any messages from server
+	go ReceiveMessage(client, clientID) // Listen for any messages from server
 
-	go ListenForMessage(client) // Listen for any messages sent by client
+	go ListenForMessage(client, clientID) // Listen for any messages sent by client
 
 	select {} // This will block the main goroutine indefinitely
 }

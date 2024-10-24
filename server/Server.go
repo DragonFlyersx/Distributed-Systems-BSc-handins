@@ -27,25 +27,29 @@ func newServer() *server {
 }
 
 // Implement the BroadcastMessage method of the ChittyChatServer interface
-func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyChat_BroadcastMessageServer) error {
+func (s *server) BroadcastMessage(clientID *Handin3.ClientID, stream Handin3.ChittyChat_BroadcastMessageServer) error {
 	// Register the client
 	s.clients[stream] = true
 	s.lamportTime += 1
-	log.Printf("LP: %s: Client connected", strconv.FormatInt(int64(s.lamportTime), 10))
+	log.Printf("LP: %s: Client: %s connected", strconv.FormatInt(int64(s.lamportTime), 10), clientID)
 	// Log when client joins a server
+	cMessage := string(clientID.ClientID + " Joined Chitty-Chat")
 	JoinMessage := &Handin3.ChatMessage{
-		Message:   "Participant Joined Chitty-Chat",
+		Message:   cMessage,
 		Timestamp: s.lamportTime,
+		ClientID:  "Server",
 	}
 	s.PublishMessage(stream.Context(), JoinMessage)
 
 	defer func() {
 		delete(s.clients, stream)
 		s.lamportTime += 1
-		log.Printf("LP: %s: client disconnected at", strconv.FormatInt(int64(s.lamportTime), 10))
+		log.Printf("LP: %s: Client: %s Disconnected", strconv.FormatInt(int64(s.lamportTime), 10), clientID)
+		dMessage := string(clientID.ClientID + " Left Chitty-Chat")
 		DisconnectMessage := &Handin3.ChatMessage{
-			Message:   "Participant Left Chitty-Chat",
+			Message:   dMessage,
 			Timestamp: s.lamportTime,
+			ClientID:  "Server",
 		}
 		s.PublishMessage(stream.Context(), DisconnectMessage)
 	}() // Clean up on disconnect
