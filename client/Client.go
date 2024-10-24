@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"log"
 	"main/Handin3"
 	"os"
@@ -30,6 +31,9 @@ func ListenForMessage(client Handin3.ChittyChatClient) {
 		if err != nil {
 			log.Fatalf("Error reading input: %v", err)
 		}
+
+		// Clear the input line
+		fmt.Print("\033[A\033[2K") // Move cursor up and clear the line
 
 		message = message[:len(message)-1] // Remove newline character
 		PublishMessage(client, message)
@@ -76,7 +80,7 @@ func ReceiveMessage(client Handin3.ChittyChatClient) {
 			lamportTime += 1
 		}
 
-		log.Printf("Client Received message: '%s' - %d \n", chatMessage.Message, lamportTime)
+		log.Printf("LP: %d: Client Received message: '%s'\n", lamportTime, chatMessage.Message)
 
 	}
 }

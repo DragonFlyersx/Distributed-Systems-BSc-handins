@@ -31,8 +31,10 @@ func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyCha
 	// Register the client
 	s.clients[stream] = true
 	s.lamportTime += 1
+	log.Printf("LP: %s: Client connected", strconv.FormatInt(int64(s.lamportTime), 10))
+	// Log when client joins a server
 	JoinMessage := &Handin3.ChatMessage{
-		Message:   "Participant Joined Chitty-Chat at Lamport time " + strconv.FormatInt(int64(s.lamportTime), 10),
+		Message:   "Participant Joined Chitty-Chat",
 		Timestamp: s.lamportTime,
 	}
 	s.PublishMessage(stream.Context(), JoinMessage)
@@ -40,8 +42,9 @@ func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyCha
 	defer func() {
 		delete(s.clients, stream)
 		s.lamportTime += 1
+		log.Printf("LP: %s: client disconnected at", strconv.FormatInt(int64(s.lamportTime), 10))
 		DisconnectMessage := &Handin3.ChatMessage{
-			Message:   "Participant Left Chitty-Chat at Lamport time " + strconv.FormatInt(int64(s.lamportTime), 10),
+			Message:   "Participant Left Chitty-Chat",
 			Timestamp: s.lamportTime,
 		}
 		s.PublishMessage(stream.Context(), DisconnectMessage)
@@ -59,21 +62,28 @@ func (s *server) BroadcastMessage(empty *Handin3.Empty, stream Handin3.ChittyCha
 
 func (s *server) PublishMessage(ctx context.Context, msg *Handin3.ChatMessage) (*Handin3.Empty, error) {
 	// increment The logical timestamp
-
-	// Log the message received
-	log.Printf("Server Received message: \"%s\" - %d \n", msg.Message, s.lamportTime)
-
+	var receivedMessage = msg
 	// Find maximum lamport time and increment
-	if s.lamportTime < msg.Timestamp {
-		s.lamportTime = msg.Timestamp + 1
+	if s.lamportTime < receivedMessage.Timestamp {
+		s.lamportTime = receivedMessage.Timestamp + 1
 
 	} else {
 		s.lamportTime += 1
 	}
 
+	// increase the lamport time after recieving the message
+	log.Printf("LP: %d: Server Received message: \"%s\"\n", s.lamportTime, receivedMessage.Message)
+
+	// Increase the lamport time when resending to the clients
+	s.lamportTime += 1
+	log.Printf("LP: %d: Server sent message: \"%s\"\n", s.lamportTime, receivedMessage.Message)
+
+	// Update timestamp for received message
+	receivedMessage.Timestamp = s.lamportTime
+
 	// Broadcast the message to all connected clients
 	for client := range s.clients {
-		if err := client.Send(msg); err != nil {
+		if err := client.Send(receivedMessage); err != nil {
 			log.Printf("Failed to send message to a client: %v", err)
 			// Optionally handle client disconnection
 		}
