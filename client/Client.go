@@ -81,7 +81,7 @@ func ReceiveMessage(client Handin3.ChittyChatClient, clientID string) {
 			lamportTime += 1
 		}
 
-		log.Printf("LP: %d: Client Received message: '%s'\n", lamportTime, chatMessage.Message)
+		log.Printf("LP: %d: %s says: '%s'\n", lamportTime, chatMessage.ClientID, chatMessage.Message)
 
 	}
 }
