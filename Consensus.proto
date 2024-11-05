@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package toke;
+
+option go_package = "/Handin4";
+
+service Node {
+    rpc SendToken (NodeMessage) returns (Empty);
+    rpc ReceiveToken (Empty) returns (stream NodeMessage);
+}
+
+message NodeMessage {
+    int32 value = 1;
+}
+
+message Empty{}
