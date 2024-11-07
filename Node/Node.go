@@ -6,6 +6,7 @@ import (
 	"log"
 	"main/Handin4"
 	"math/rand/v2"
+	"time"
 
 	"google.golang.org/grpc"
 )
@@ -68,12 +69,20 @@ func ReceiveToken(node Handin4.NodeClient) {
 }
 
 func main() {
-	nextNodeAddress := "localhost:50051" // Address of the next node in the chain
+	nextNodeAddress := "25.8.113.191:50051" // Address of the next node in the chain
 
-	// Connect to the next node in the chain
-	conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect to N: %v", err)
+	var conn *grpc.ClientConn
+	var err error
+
+	// Retry mechanism for connecting to the next node
+	for {
+		// Connects to the next node in the ring
+		conn, err = grpc.Dial(nextNodeAddress, grpc.WithInsecure())
+		if err == nil {
+			break
+		}
+		log.Printf("Failed to connect to %s: %v. Retrying in 5 seconds...", nextNodeAddress, err)
+		time.Sleep(5 * time.Second)
 	}
 	defer conn.Close() // Ensure the connection is closed when main exits
 
