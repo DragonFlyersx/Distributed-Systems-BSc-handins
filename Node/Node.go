@@ -6,6 +6,7 @@ import (
 	"log"
 	"main/Handin4"
 	"math/rand/v2"
+	"net"
 	"time"
 
 	"google.golang.org/grpc"
@@ -68,7 +69,28 @@ func ReceiveToken(node Handin4.NodeClient) {
 	}
 }
 
+func RegisterServer() {
+	// Define the port for the server to listen on
+	port := ":50051"
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Fatalf("Failed to listen on port %s: %v", port, err)
+	}
+
+	// Create a new gRPC server
+	grpcServer := grpc.NewServer()
+	Handin4.RegisterNodeServer(grpcServer, Handin4.UnimplementedNodeServer{})
+
+	// Start serving requests
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve: %v", err)
+	}
+}
+
 func main() {
+	// Start the gRPC server to accept connections from other nodes
+	go RegisterServer()
+
 	nextNodeAddress := "25.8.113.191:50051" // Address of the next node in the chain
 
 	var conn *grpc.ClientConn
@@ -79,6 +101,7 @@ func main() {
 		// Connects to the next node in the ring
 		conn, err = grpc.Dial(nextNodeAddress, grpc.WithInsecure())
 		if err == nil {
+			log.Printf("Successfully connected to %s", nextNodeAddress)
 			break
 		}
 		log.Printf("Failed to connect to %s: %v. Retrying in 5 seconds...", nextNodeAddress, err)
