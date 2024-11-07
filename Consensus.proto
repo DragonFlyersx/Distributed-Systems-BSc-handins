@@ -5,11 +5,12 @@ package log;
 option go_package = "/Handin4";
 
 service Node {
-    rpc SendToken (stream NodeMessage) returns (Empty);
-    rpc ReceiveToken (NodeMessage) returns (Empty);
+    rpc SendToken (NodeMessage) returns (Empty);
+    rpc ReceiveToken (Empty) returns (stream NodeMessage);
 }
 
 message NodeMessage {
     int32 value = 1;
 }
+
 message Empty{}
