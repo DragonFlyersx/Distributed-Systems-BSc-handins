@@ -81,6 +81,7 @@ func RegisterServer() {
 	grpcServer := grpc.NewServer()
 	Handin4.RegisterNodeServer(grpcServer, Handin4.UnimplementedNodeServer{})
 
+	log.Printf("NodeServer is running on port %s", port)
 	// Start serving requests
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
@@ -99,7 +100,7 @@ func main() {
 	// Retry mechanism for connecting to the next node
 	for {
 		// Connects to the next node in the ring
-		conn, err = grpc.Dial(nextNodeAddress, grpc.WithInsecure())
+		conn, err = grpc.Dial(nextNodeAddress, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(5*time.Second))
 		if err == nil {
 			log.Printf("Successfully connected to %s", nextNodeAddress)
 			break
