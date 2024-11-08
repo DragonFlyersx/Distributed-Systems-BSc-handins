@@ -100,7 +100,7 @@ func sendTokenToNextNode(receivedToken *TokenRing.Token) {
 	}
 
 	// needs to update token with values
-	if err := stream.Send(token); err != nil {
+	if err := stream.Send(receivedToken); err != nil {
 		log.Fatalf("Failed to send token: %v", err)
 	}
 
