@@ -26,8 +26,8 @@ var stream TokenRing.Node_SendTokenClient
 
 type Token struct {
 	TokenRing.UnimplementedNodeServer
-	tokenID int32
-	// timeStamp string
+	tokenID   int32
+	timeStamp string
 }
 
 func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
@@ -65,10 +65,10 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 			}
 		}
 		log.Printf("Waiting To send Token")
-		time.Sleep(3 * time.Second)
-		// currentTime := time.Now()
-		// currentTime.Format("15:04:05")
-		// token.TimeStamp = currentTime.String()
+		time.Sleep(5 * time.Second)
+		currentTime := time.Now()
+		currentTime.Format("15:04:05")
+		token.TimeStamp = currentTime.String()
 
 		sendTokenToNextNode(token)
 	}
@@ -152,12 +152,12 @@ func main() {
 
 				// Genereate first Token
 				var token *TokenRing.Token
-				// currentTime := time.Now()
-				// currentTime.Format("15:04:05")
+				currentTime := time.Now()
+				currentTime.Format("15:04:05")
 
 				token = &TokenRing.Token{
-					TokenID: nodeID,
-					// TimeStamp: currentTime.String(),
+					TokenID:   nodeID,
+					TimeStamp: currentTime.String(),
 				}
 
 				sendTokenToNextNode(token)
