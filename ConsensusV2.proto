@@ -10,6 +10,4 @@ service Node {
 
 message Token {
     int32 tokenID = 1;
-    bool electionState = 2;
-    bool isLeader = 3;
 }

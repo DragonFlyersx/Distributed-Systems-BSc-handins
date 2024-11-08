@@ -16,12 +16,13 @@ import (
 
 var ReceivingMode bool
 var nodeID int32
+var nextNodeAddress string
+var port string
+var WantsToBeLeader bool
 
 type Token struct {
 	TokenRing.UnimplementedNodeServer
-	tokenID       int32
-	electionState bool
-	isLeader      bool
+	tokenID int32
 }
 
 func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
@@ -36,50 +37,45 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 
 		// Process the received token
 		fmt.Printf("Received token from node in SendToken() %d\n", token.TokenID)
-		electionState := token.ElectionState
+		if !ReceivingMode {
+			ReceivingMode = true // able to only recieve and not generate new Tokens need to change the values of the token instead
+		}
 
-		if electionState {
+		if WantsToBeLeader {
 			// Handle election message
 			if token.TokenID == nodeID {
 				log.Printf("Node %d has been elected as leader", nodeID)
+				log.Printf("Node %d Is accesing the Critical Section", nodeID)
+				time.Sleep(1 * time.Second) // Simulate processing
+				log.Printf("Node %d Is aDone with the Critical Section", nodeID)
+				WantsToBeLeader = false
 
-				// Send elected notification
-				response := &TokenRing.Token{
-					TokenID:       nodeID,
-					ElectionState: false,
-					IsLeader:      true,
-				}
-				if err := stream.Send(response); err != nil {
-					return err
-				}
-			} else if token.TokenID > nodeID {
-				// Forward the election message
-				if err := stream.Send(token); err != nil {
-					return err
-				}
-			} else {
-				// Regular token passing
-				if token.IsLeader {
-					log.Printf("Leader (Node %d) processing token", nodeID)
-					time.Sleep(1 * time.Second) // Simulate processing
-				}
+				// is elected as leader needs to Time for critical section then pass the node along with zero as cliend Id
+				//calls sendTokenNExtNode updated ID to 0
+				token.TokenID = 0
 
-				// Forward the token
-				if err := stream.Send(token); err != nil {
-					return err
-				}
-				log.Printf("Node %d forwarded token", token.TokenID)
+				sendTokenToNextNode(token)
+
+			} else if token.TokenID < nodeID {
+				// Forward the Token since we cant become leader, needs to be only if we want to enter the criticak
+				// update The internal value of the Token
+				token.TokenID = nodeID
+
+				//calls sendTokenNExtNode updated ID
+				sendTokenToNextNode(token)
 			}
+		} else {
+			// Regular token passing
+			// Forwards the token without change
+			// Needs to just Forward The token Using SendTokenNextNode without updating anything
+			sendTokenToNextNode(token)
 		}
 	}
-
-	// Forward token to the next node (handled in client logic below)
-
 	return nil
 }
 
 // sendTokenToNextNode handles sending a token to the next node in the ring.
-func sendTokenToNextNode(nextNodeAddress string, nodeID int32, election bool) {
+func sendTokenToNextNode(receivedToken *TokenRing.Token) {
 	conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("Failed to connect to next node: %v", err)
@@ -88,25 +84,17 @@ func sendTokenToNextNode(nextNodeAddress string, nodeID int32, election bool) {
 
 	client := TokenRing.NewNodeClient(conn)
 	stream, err := client.SendToken(context.Background())
-	var token *TokenRing.Token
 	if err != nil {
 		log.Fatalf("Failed to open stream: %v", err)
 	}
-	if !ReceivingMode {
-		token = &TokenRing.Token{
-			TokenID:       nodeID,
-			ElectionState: election,
-		}
-	} else {
-		// needs to update token with values
 
-	}
-	// Sending a token to the next node
-
-	if err := stream.Send(token); err != nil {
+	// needs to update token with values
+	if err := stream.Send(receivedToken); err != nil {
 		log.Fatalf("Failed to send token: %v", err)
 	}
-	fmt.Printf("Sent token from node %d to %s\n", nodeID, nextNodeAddress)
+
+	// Sending a token to the next node
+	fmt.Printf("Sent received token from node %d to %s\n", nodeID, nextNodeAddress)
 
 	// Close the stream after sending the token
 	if err := stream.CloseSend(); err != nil {
@@ -135,10 +123,9 @@ func startServer(port string, ip string) {
 
 func main() {
 	ip := "25.8.121.243:50051"
-	port := "50051"
+	port = "50051"
 	nodeID = rand.Int31() + 1
-	nextNodeAddress := "25.11.126.45:50051"
-	//isLeader := true // Change this to false for non-leader nodes as there can only be on to start the passing of token
+	nextNodeAddress = "25.11.126.45:50051"
 
 	go startServer(port, ip)
 
@@ -146,8 +133,20 @@ func main() {
 	for {
 		fmt.Scan(&userCommand)
 
-		if userCommand == "AskForElection" { // Ie Enter the Crititcal Section. Needs to update Token and send First one
-			sendTokenToNextNode(nextNodeAddress, nodeID, true)
+		if userCommand == "AskForElection" { // Ie Enter the Critical Section. Needs to update Token and send First one
+			WantsToBeLeader = true
+			if !ReceivingMode {
+
+				// Genereate first Token
+				var token *TokenRing.Token
+
+				token = &TokenRing.Token{
+					TokenID: nodeID,
+				}
+
+				sendTokenToNextNode(token)
+			}
+
 		}
 	}
 
