@@ -62,6 +62,7 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 
 		sendTokenToNextNode(token)
 	}
+	log.Printf("FAULTY")
 	return nil
 }
 
