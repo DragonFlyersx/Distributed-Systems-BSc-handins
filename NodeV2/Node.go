@@ -22,7 +22,8 @@ var WantsToBeLeader bool
 
 type Token struct {
 	TokenRing.UnimplementedNodeServer
-	tokenID int32
+	tokenID   int32
+	timeStamp string
 }
 
 func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
@@ -52,7 +53,7 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 				WantsToBeLeader = false
 				// is elected as leader needs to Time for critical section then pass the node along with zero as cliend Id
 				//calls sendTokenNExtNode updated ID to 0
-				token.TokenID = 0
+				token.TokenID = -1
 			} else if token.TokenID < nodeID {
 				// Forward the Token since we cant become leader, needs to be only if we want to enter the criticak
 				// update The internal value of the Token
@@ -61,6 +62,9 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 		}
 		log.Printf("Waiting To send Token")
 		time.Sleep(2 * time.Second)
+		currentTime := time.Now()
+		currentTime.Format("15:04:05")
+		token.TimeStamp = currentTime.String()
 
 		sendTokenToNextNode(token)
 	}

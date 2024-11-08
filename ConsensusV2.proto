@@ -10,4 +10,6 @@ service Node {
 
 message Token {
     int32 tokenID = 1;
+    int32 Leader = 2;
+    string timeStamp = 3;
 }
