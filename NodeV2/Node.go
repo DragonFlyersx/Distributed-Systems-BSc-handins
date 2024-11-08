@@ -66,7 +66,20 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 		currentTime.Format("15:04:05")
 		token.TimeStamp = currentTime.String()
 
-		sendTokenToNextNode(token)
+		var newToken TokenRing.Token
+
+		newToken = TokenRing.Token{
+			TokenID: token.TokenID,
+		}
+
+		//var token *TokenRing.Token
+		/*
+			token = &TokenRing.Token{
+				TokenID: nodeID,
+			}
+		*/
+
+		sendTokenToNextNode(&newToken)
 	}
 	log.Printf("FAULTY")
 	return nil
@@ -87,7 +100,7 @@ func sendTokenToNextNode(receivedToken *TokenRing.Token) {
 	}
 
 	// needs to update token with values
-	if err := stream.Send(receivedToken); err != nil {
+	if err := stream.Send(token); err != nil {
 		log.Fatalf("Failed to send token: %v", err)
 	}
 
