@@ -132,7 +132,7 @@ func startServer(port string, ip string) {
 func main() {
 	ip := "25.8.121.243:50051"
 	port = "50051"
-	nodeID = rand.Int31() + 1
+	nodeID = int32(rand.Intn(10) + 1)
 	nextNodeAddress = "25.11.126.45:50051"
 
 	log.Printf("Node was assigned id %v", nodeID)
@@ -143,7 +143,7 @@ func main() {
 	for {
 		fmt.Scan(&userCommand)
 
-		if userCommand == "A" { // Ie Enter the Critical Section. Needs to update Token and send First one
+		if userCommand == "" { // Ie Enter the Critical Section. Needs to update Token and send First one
 			WantsToBeLeader = true
 			if !ReceivingMode {
 
