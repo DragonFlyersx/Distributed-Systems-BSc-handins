@@ -75,13 +75,6 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 			TokenID: token.TokenID,
 		}
 
-		//var token *TokenRing.Token
-		/*
-			token = &TokenRing.Token{
-				TokenID: nodeID,
-			}
-		*/
-
 		sendTokenToNextNode(&newToken)
 	}
 	log.Printf("FAULTY")
@@ -164,7 +157,6 @@ func main() {
 				token = &TokenRing.Token{
 					TokenID: nodeID,
 				}
-
 				sendTokenToNextNode(token)
 			}
 
