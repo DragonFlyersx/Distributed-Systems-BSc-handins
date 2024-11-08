@@ -108,11 +108,12 @@ func startServer(port string, ip string) {
 	TokenRing.RegisterNodeServer(grpcServer, &Token{})
 
 	//listen and server
+	log.Printf("Ready to receive and listening on port %s", port)
+
 	err = grpcServer.Serve(listen)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-	log.Printf("Listening on port %s", port)
 }
 
 func main() {
