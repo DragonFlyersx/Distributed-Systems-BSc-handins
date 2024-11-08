@@ -117,12 +117,12 @@ func startServer(port string, ip string, serverIsRunning chan bool) {
 
 	//listen and server
 	log.Printf("Ready to receive and listening on port %s", port)
-	serverIsRunning <- true // telling the channel that the server is running
 
 	err = grpcServer.Serve(listen)
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+	serverIsRunning <- true // telling the channel that the server is running
 }
 
 func main() {
