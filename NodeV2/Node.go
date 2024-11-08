@@ -36,9 +36,10 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 		}
 
 		// Process the received token
-		fmt.Printf("Received token from node in SendToken() %d\n", token.TokenID)
+		fmt.Printf("Received token from node in SendToken() With the ID:  %d\n", token.TokenID)
 		if !ReceivingMode {
 			ReceivingMode = true // able to only recieve and not generate new Tokens need to change the values of the token instead
+			log.Printf("Recieving mode is on")
 		}
 
 		if WantsToBeLeader {
@@ -49,27 +50,17 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 				time.Sleep(1 * time.Second) // Simulate processing
 				log.Printf("Node %d Is Done with the Critical Section", nodeID)
 				WantsToBeLeader = false
-
 				// is elected as leader needs to Time for critical section then pass the node along with zero as cliend Id
 				//calls sendTokenNExtNode updated ID to 0
 				token.TokenID = 0
-
-				sendTokenToNextNode(token)
-
 			} else if token.TokenID < nodeID {
 				// Forward the Token since we cant become leader, needs to be only if we want to enter the criticak
 				// update The internal value of the Token
 				token.TokenID = nodeID
-
-				//calls sendTokenNExtNode updated ID
-				sendTokenToNextNode(token)
 			}
-		} else {
-			// Regular token passing
-			// Forwards the token without change
-			// Needs to just Forward The token Using SendTokenNextNode without updating anything
-			sendTokenToNextNode(token)
 		}
+
+		sendTokenToNextNode(token)
 	}
 	return nil
 }
@@ -96,10 +87,6 @@ func sendTokenToNextNode(receivedToken *TokenRing.Token) {
 	// Sending a token to the next node
 	fmt.Printf("Sent received token from node %d to %s\n", nodeID, nextNodeAddress)
 
-	// // Close the stream after sending the token
-	// if err := stream.CloseSend(); err != nil {
-	// 	log.Fatalf("Failed to close stream: %v", err)
-	// }
 }
 
 func startServer(port string, ip string) {
