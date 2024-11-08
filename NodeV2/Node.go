@@ -143,7 +143,7 @@ func main() {
 	for {
 		fmt.Scan(&userCommand)
 
-		if userCommand == "" { // Ie Enter the Critical Section. Needs to update Token and send First one
+		if userCommand == "A" { // Ie Enter the Critical Section. Needs to update Token and send First one
 			WantsToBeLeader = true
 			if !ReceivingMode {
 
