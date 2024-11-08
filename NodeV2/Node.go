@@ -89,20 +89,12 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 }
 
 func initClientConnection() {
-	var err error
-	for retries := 0; retries < 5; retries++ {
-		conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
-		if err == nil {
-			client = TokenRing.NewNodeClient(conn)
-			log.Println("Successfully connected to the next node.")
-			return
-		}
-		log.Printf("Failed to connect to next node, retrying... (%d/5)\n", retries+1)
-		time.Sleep(time.Second * time.Duration(retries+1))
-	}
+	// Initialize connection to the next node, to be used globally.
+	conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Failed to connect to next node after retries: %v", err)
+		log.Fatalf("Failed to connect to next node: %v", err)
 	}
+	client = TokenRing.NewNodeClient(conn)
 }
 
 func sendTokenToNextNode(receivedToken *TokenRing.Token) {
