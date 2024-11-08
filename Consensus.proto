@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package log;
+package toke;
 
 option go_package = "/Handin4";
 

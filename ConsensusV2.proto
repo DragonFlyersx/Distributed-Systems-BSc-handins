@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package TokenRing;
+
+option go_package = "/TokenRing";
+
+service Node {
+    rpc SendToken (stream Token) returns (stream Token);
+}
+
+message Token {
+    int32 tokenID = 1;
+    bool electionState = 2;
+    bool isLeader = 3;
+}

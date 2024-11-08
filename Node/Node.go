@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"main/Handin4"
-	"math/rand/v2"
+	"math/rand"
 	"net"
 	"time"
 
@@ -17,89 +17,74 @@ var ReceivingMode bool
 var RequestedAccess bool
 var isLeader bool
 
-// var LeaderID int32
-
-// implemt logic for critical server access
-// implement logic for token passing
-
+// SendToken sends a token to the next node in the chain
 func SendToken(node Handin4.NodeClient, message Handin4.NodeMessage) {
-	// Call the publish message method
 	_, err := node.SendToken(context.Background(), &message)
 	if err != nil {
 		log.Fatalf("Error sending token: %v", err)
 	}
 }
 
-// This function listens for any messages from other nodes
-func ReceiveToken(node Handin4.NodeClient) {
+// ReceiveToken listens for messages from other nodes
+/*func ReceiveToken(node Handin4.NodeClient) {
 	stream, err := node.ReceiveToken(context.Background(), &Handin4.Empty{})
 	if err != nil {
-		log.Fatalf("Error recieving token: %v", err)
+		log.Fatalf("Error receiving token: %v", err)
 	}
 
-	// Read message from stream
 	for {
-		NodeMessage, err := stream.Recv()
+		nodeMessage, err := stream.Recv()
 		if err != nil {
-			log.Fatalf("Recieving Token %v", err)
+			log.Fatalf("Error receiving token: %v", err)
 		}
-		if NodeMessage.Value != 0 {
+		if nodeMessage.Value != 0 {
 			ReceivingMode = true
 		}
 
-		// here we hold the token while in the critical section
-
-		// Implement logic for receiving token
-		// Send token to next node
-		if NodeMessage.Value != NodeNumber {
-			if !RequestedAccess || RequestedAccess && NodeNumber < NodeMessage.Value {
-				SendToken(node, *NodeMessage)
-			} else if RequestedAccess && NodeNumber > NodeMessage.Value {
-				NodeMessage.Value = NodeNumber
-				SendToken(node, *NodeMessage)
+		// Implement token passing logic
+		if nodeMessage.Value != NodeNumber {
+			if !RequestedAccess || (RequestedAccess && NodeNumber < nodeMessage.Value) {
+				SendToken(node, *nodeMessage)
+			} else if RequestedAccess && NodeNumber > nodeMessage.Value {
+				nodeMessage.Value = NodeNumber
+				SendToken(node, *nodeMessage)
 			}
 		} else {
 			if !isLeader {
 				fmt.Println("You are elected as the leader")
-				isLeader = true // Set to true to avoid print multiple times
+				isLeader = true
 			}
-			// You are elected as the leader
-
 		}
 	}
-}
+}*/
 
+// RegisterServer sets up the gRPC server to listen for incoming tokens
 func RegisterServer() {
-	// Define the port for the server to listen on
-	port := ":50051"
+	port := ":50051" // Change this for each node to run on a different port
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("Failed to listen on port %s: %v", port, err)
 	}
 
-	// Create a new gRPC server
 	grpcServer := grpc.NewServer()
-	Handin4.RegisterNodeServer(grpcServer, Handin4.UnimplementedNodeServer{})
+	Handin4.RegisterNodeServer(grpcServer, &NodeServerImpl{})
 
 	log.Printf("NodeServer is running on port %s", port)
-	// Start serving requests
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
 }
 
 func main() {
-	// Start the gRPC server to accept connections from other nodes
 	go RegisterServer()
 
-	nextNodeAddress := "25.8.113.191:50051" // Address of the next node in the chain
-
+	// Each node's connection to its neighbor (next node)
+	nextNodeAddress := "25.8.113.191:50051" // Replace with actual next node's address
 	var conn *grpc.ClientConn
 	var err error
 
 	// Retry mechanism for connecting to the next node
 	for {
-		// Connects to the next node in the ring
 		conn, err = grpc.Dial(nextNodeAddress, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(5*time.Second))
 		if err == nil {
 			log.Printf("Successfully connected to %s", nextNodeAddress)
@@ -108,22 +93,19 @@ func main() {
 		log.Printf("Failed to connect to %s: %v. Retrying in 5 seconds...", nextNodeAddress, err)
 		time.Sleep(5 * time.Second)
 	}
-	defer conn.Close() // Ensure the connection is closed when main exits
+	defer conn.Close()
 
-	// Create a Node
 	node := Handin4.NewNodeClient(conn)
 
-	go ReceiveToken(node) // Listen for any messages from Nodes
+	// Start receiving tokens from other nodes
 
 	for {
 		var userCommand string
-		fmt.Print("To enter the critical section (Access/Done)")
+		fmt.Print("To enter the critical section (Access/Done): ")
 		fmt.Scan(&userCommand)
 
 		if userCommand == "Access" {
-			// send Token with value for access global Int
-			// Send token to next node
-			queue := rand.Int32() + 1
+			queue := rand.Int31() + 1
 			RequestedAccess = true
 			if RequestedAccess && !ReceivingMode {
 				fmt.Println("Starting token passing system with initial token.")
@@ -135,24 +117,18 @@ func main() {
 					Value: NodeNumber,
 				}
 				SendToken(node, *NewMessage)
-				// send first Token / call Election
-
 			} else if RequestedAccess && ReceivingMode {
 				NodeNumber = queue
-				// This wants to acces the critical / call Election
 			}
-
 		}
+
 		if userCommand == "Done" {
 			RequestedAccess = false
 			NodeNumber = 0
 			fmt.Println("Done with the Access to the critical section.")
-			isLeader = false // set to false since the node is done being the leader
-			// send the token along
-			// now with the new 0 value in the token / Rekinquish Elected Right
-
+			isLeader = false
 		}
 
-		select {} // This will block the main goroutine indefinitely
+		select {}
 	}
 }
