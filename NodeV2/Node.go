@@ -19,6 +19,10 @@ var nodeID int32
 var nextNodeAddress string
 var port string
 var WantsToBeLeader bool
+var nodeClient TokenRing.NodeClient
+var nodeStream TokenRing.Node_SendTokenClient
+var conn *grpc.ClientConn
+var stream TokenRing.Node_SendTokenClient
 
 type Token struct {
 	TokenRing.UnimplementedNodeServer
@@ -72,31 +76,35 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 	return nil
 }
 
-// sendTokenToNextNode handles sending a token to the next node in the ring.
-func sendTokenToNextNode(receivedToken *TokenRing.Token) {
+func initConnection() error {
+	var err error
 	conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
 	if err != nil {
-		log.Fatalf("Failed to connect to next node: %v", err)
+
+		return fmt.Errorf("failed to connect to the next node: %v", err)
 	}
-	defer conn.Close()
 
 	client := TokenRing.NewNodeClient(conn)
-	stream, err := client.SendToken(context.Background())
+	stream, err = client.SendToken(context.Background())
 	if err != nil {
-		log.Fatalf("Failed to open stream: %v", err)
+		return fmt.Errorf("failed to open stream: %v", err)
 	}
 
-	// needs to update token with values
+	return nil
+}
+
+// sendTokenToNextNode handles sending a token to the next node in the ring.
+func sendTokenToNextNode(receivedToken *TokenRing.Token) error {
 	if err := stream.Send(receivedToken); err != nil {
-		log.Fatalf("Failed to send token: %v", err)
+		return fmt.Errorf("failed to send token: %v", err)
 	}
 
-	// Sending a token to the next node
 	fmt.Printf("Sent received token from node %d to %s\n", nodeID, nextNodeAddress)
+	return nil
 
 }
 
-func startServer(port string, ip string) {
+func startServer(port string, ip string, serverIsRunning chan bool) {
 	//init listener
 	listen, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -114,6 +122,7 @@ func startServer(port string, ip string) {
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+	serverIsRunning <- true // telling the channel that the server is running
 }
 
 func main() {
@@ -121,10 +130,17 @@ func main() {
 	port = "50051"
 	nodeID = rand.Int31() + 1
 	nextNodeAddress = "25.11.126.45:50051"
+	serverIsRunning := make(chan bool) // channel to communicate when the server is running
 
 	log.Printf("Node was assigned id %v", nodeID)
 
-	go startServer(port, ip)
+	go startServer(port, ip, serverIsRunning)
+
+	<-serverIsRunning // wait until the server is running
+
+	if err := initConnection(); err != nil {
+		log.Fatalf("Failed to initialize connection: %v", err)
+	}
 
 	var userCommand string
 	for {
@@ -136,9 +152,12 @@ func main() {
 
 				// Genereate first Token
 				var token *TokenRing.Token
+				currentTime := time.Now()
+				currentTime.Format("15:04:05")
 
 				token = &TokenRing.Token{
-					TokenID: nodeID,
+					TokenID:   nodeID,
+					TimeStamp: currentTime.String(),
 				}
 
 				sendTokenToNextNode(token)
@@ -147,4 +166,5 @@ func main() {
 		}
 	}
 
+	select {}
 }
