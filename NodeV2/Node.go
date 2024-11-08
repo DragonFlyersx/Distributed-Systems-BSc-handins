@@ -47,7 +47,7 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 			if token.TokenID == nodeID {
 				log.Printf("Node %d has been elected as leader", nodeID)
 				log.Printf("Node %d Is accesing the Critical Section", nodeID)
-				time.Sleep(1 * time.Second) // Simulate processing
+				time.Sleep(4 * time.Second) // Simulate processing
 				log.Printf("Node %d Is Done with the Critical Section", nodeID)
 				WantsToBeLeader = false
 				// is elected as leader needs to Time for critical section then pass the node along with zero as cliend Id
@@ -59,6 +59,8 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 				token.TokenID = nodeID
 			}
 		}
+		log.Printf("Waiting To send Token")
+		time.Sleep(2 * time.Second)
 
 		sendTokenToNextNode(token)
 	}
