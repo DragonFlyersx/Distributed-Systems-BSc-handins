@@ -20,6 +20,9 @@ var nextNodeAddress string
 var port string
 var WantsToBeLeader bool
 
+var client TokenRing.NodeClient
+var stream TokenRing.Node_SendTokenClient
+
 type Token struct {
 	TokenRing.UnimplementedNodeServer
 	tokenID   int32
@@ -85,30 +88,43 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 	return nil
 }
 
-// sendTokenToNextNode handles sending a token to the next node in the ring.
-func sendTokenToNextNode(receivedToken *TokenRing.Token) {
-	conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
+func initClientConnection() {
+	var err error
+	for retries := 0; retries < 5; retries++ {
+		conn, err := grpc.Dial(nextNodeAddress, grpc.WithInsecure())
+		if err == nil {
+			client = TokenRing.NewNodeClient(conn)
+			log.Println("Successfully connected to the next node.")
+			return
+		}
+		log.Printf("Failed to connect to next node, retrying... (%d/5)\n", retries+1)
+		time.Sleep(time.Second * time.Duration(retries+1))
+	}
 	if err != nil {
-		log.Fatalf("Failed to connect to next node: %v", err)
+		log.Fatalf("Failed to connect to next node after retries: %v", err)
 	}
-	defer conn.Close()
-
-	client := TokenRing.NewNodeClient(conn)
-	stream, err := client.SendToken(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to open stream: %v", err)
-	}
-
-	// needs to update token with values
-	if err := stream.Send(receivedToken); err != nil {
-		log.Fatalf("Failed to send token: %v", err)
-	}
-
-	// Sending a token to the next node
-	fmt.Printf("Sent received token from node %d to %s\n", nodeID, nextNodeAddress)
-
 }
 
+func sendTokenToNextNode(receivedToken *TokenRing.Token) {
+	if stream == nil {
+		var err error
+		stream, err = client.SendToken(context.Background())
+		if err != nil {
+			log.Fatalf("Failed to open stream: %v", err)
+		}
+	}
+
+	// Attempt to send token with retry logic.
+	for retries := 0; retries < 3; retries++ {
+		if err := stream.Send(receivedToken); err != nil {
+			log.Printf("Retrying token send due to error: %v", err)
+			time.Sleep(time.Second * time.Duration(retries+1)) // Exponential backoff
+		} else {
+			fmt.Printf("Sent received token from node %d to %s\n", nodeID, nextNodeAddress)
+			break
+		}
+	}
+}
 func startServer(port string, ip string) {
 	//init listener
 	listen, err := net.Listen("tcp", ":"+port)
@@ -138,6 +154,9 @@ func main() {
 	log.Printf("Node was assigned id %v", nodeID)
 
 	go startServer(port, ip)
+
+	// Initialize the client connection to the next node.
+	initClientConnection()
 
 	var userCommand string
 	for {
