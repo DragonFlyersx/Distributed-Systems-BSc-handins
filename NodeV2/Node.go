@@ -61,7 +61,7 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 			}
 		}
 		log.Printf("Waiting To send Token")
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 		currentTime := time.Now()
 		currentTime.Format("15:04:05")
 		token.TimeStamp = currentTime.String()
