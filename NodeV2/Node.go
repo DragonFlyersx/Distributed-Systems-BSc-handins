@@ -47,7 +47,7 @@ func (token *Token) SendToken(stream TokenRing.Node_SendTokenServer) error {
 				log.Printf("Node %d has been elected as leader", nodeID)
 				log.Printf("Node %d Is accesing the Critical Section", nodeID)
 				time.Sleep(1 * time.Second) // Simulate processing
-				log.Printf("Node %d Is aDone with the Critical Section", nodeID)
+				log.Printf("Node %d Is Done with the Critical Section", nodeID)
 				WantsToBeLeader = false
 
 				// is elected as leader needs to Time for critical section then pass the node along with zero as cliend Id
@@ -96,10 +96,10 @@ func sendTokenToNextNode(receivedToken *TokenRing.Token) {
 	// Sending a token to the next node
 	fmt.Printf("Sent received token from node %d to %s\n", nodeID, nextNodeAddress)
 
-	// Close the stream after sending the token
-	if err := stream.CloseSend(); err != nil {
-		log.Fatalf("Failed to close stream: %v", err)
-	}
+	// // Close the stream after sending the token
+	// if err := stream.CloseSend(); err != nil {
+	// 	log.Fatalf("Failed to close stream: %v", err)
+	// }
 }
 
 func startServer(port string, ip string) {
@@ -126,6 +126,8 @@ func main() {
 	port = "50051"
 	nodeID = rand.Int31() + 1
 	nextNodeAddress = "25.11.126.45:50051"
+
+	log.Printf("Node was assigned id %v", nodeID)
 
 	go startServer(port, ip)
 
