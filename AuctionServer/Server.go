@@ -13,12 +13,11 @@ import (
 
 var CurrentHighestBid int32 = 0
 var AuctionStatus string = "Closed"
+var AuctionServer server // Server instance
 
 type server struct {
 	AuctionHouse.AuctionServiceServer
-	// Handin3.ChatMessage latestMessage := nil
-	clients     map[AuctionHouse.AuctionService_SendResultServer]bool
-	lamportTime int64
+	clients map[AuctionHouse.AuctionService_SendResultServer]bool
 }
 
 // Constructor for the server
@@ -28,14 +27,14 @@ func newServer() *server {
 	}
 }
 
-func SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receive bid from client
+func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receive bid from client
 	userBidRequest, err := stream.Recv()
 	if err != nil {
 		log.Fatalf("Failed to receive a bid: %v", err)
 	}
-	log.Printf("Bid received from client: %v", userBidRequest)
+	log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
 	CurrentHighestBid = userBidRequest.BidAmount // Update the current highest bid
-	log.Printf("Current highest bid: %v", CurrentHighestBid)
+	log.Printf("Current highest bid: %v by %s", CurrentHighestBid, userBidRequest.BidderName)
 
 	return stream.Send(&AuctionHouse.BidResponse{Ack: true})
 }
@@ -43,12 +42,17 @@ func SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receiv
 func SendResult(stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
 	result := CurrentHighestBid
 	if AuctionStatus == "Open" { // If the auction is still open
-		log.Printf("Result sent to client: %v", result)
-		return stream.Send(&AuctionHouse.ResultResponse{Status: "Open", Result: result})
+		log.Printf("Result sent to clients: %v", result)
+		for client := range AuctionServer.clients {
+			client.Send(&AuctionHouse.ResultResponse{Status: "Open", Result: result})
+		}
 	} else { // If the auction is closed
-		log.Printf("Result sent to client: %v", result)
-		return stream.Send(&AuctionHouse.ResultResponse{Status: "Closed", Result: result})
+		log.Printf("Result sent to clients: %v", result)
+		for client := range AuctionServer.clients {
+			client.Send(&AuctionHouse.ResultResponse{Status: "Closed", Result: result})
+		}
 	}
+	return nil
 }
 
 func startServer(port string, ip string) {
@@ -60,7 +64,7 @@ func startServer(port string, ip string) {
 
 	//gRPC server instance
 	grpcServer := grpc.NewServer()
-	AuctionHouse.RegisterAuctionServiceServer(grpcServer, &ResultResponse{})
+	AuctionHouse.RegisterAuctionServiceServer(grpcServer)
 
 	//listen and server
 	log.Printf("Ready to receive and listening on port %s", port)

@@ -11,7 +11,7 @@ service AuctionService {
 
 message UserBidRequest {
     int32 bidAmount = 1;
-    int32 ID = 2;
+    string bidderName = 2;
 }
 
 message Empty {}
@@ -23,5 +23,6 @@ message BidResponse {
 message ResultResponse {
     int32 result = 1;
     string status = 2;
+    string WinnerName = 3;
 }
 

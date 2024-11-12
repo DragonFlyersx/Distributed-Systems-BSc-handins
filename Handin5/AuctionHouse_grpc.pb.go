@@ -27,7 +27,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AuctionServiceClient interface {
-	SendBid(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UserBidRequest, BidResponse], error)
+	SendBid(ctx context.Context, in *UserBidRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BidResponse], error)
 	SendResult(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ResultResponse], error)
 }
 
@@ -39,18 +39,24 @@ func NewAuctionServiceClient(cc grpc.ClientConnInterface) AuctionServiceClient {
 	return &auctionServiceClient{cc}
 }
 
-func (c *auctionServiceClient) SendBid(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UserBidRequest, BidResponse], error) {
+func (c *auctionServiceClient) SendBid(ctx context.Context, in *UserBidRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[BidResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &AuctionService_ServiceDesc.Streams[0], AuctionService_SendBid_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	x := &grpc.GenericClientStream[UserBidRequest, BidResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AuctionService_SendBidClient = grpc.BidiStreamingClient[UserBidRequest, BidResponse]
+type AuctionService_SendBidClient = grpc.ServerStreamingClient[BidResponse]
 
 func (c *auctionServiceClient) SendResult(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ResultResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -75,7 +81,7 @@ type AuctionService_SendResultClient = grpc.ServerStreamingClient[ResultResponse
 // All implementations must embed UnimplementedAuctionServiceServer
 // for forward compatibility.
 type AuctionServiceServer interface {
-	SendBid(grpc.BidiStreamingServer[UserBidRequest, BidResponse]) error
+	SendBid(*UserBidRequest, grpc.ServerStreamingServer[BidResponse]) error
 	SendResult(*Empty, grpc.ServerStreamingServer[ResultResponse]) error
 	mustEmbedUnimplementedAuctionServiceServer()
 }
@@ -87,7 +93,7 @@ type AuctionServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAuctionServiceServer struct{}
 
-func (UnimplementedAuctionServiceServer) SendBid(grpc.BidiStreamingServer[UserBidRequest, BidResponse]) error {
+func (UnimplementedAuctionServiceServer) SendBid(*UserBidRequest, grpc.ServerStreamingServer[BidResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method SendBid not implemented")
 }
 func (UnimplementedAuctionServiceServer) SendResult(*Empty, grpc.ServerStreamingServer[ResultResponse]) error {
@@ -115,11 +121,15 @@ func RegisterAuctionServiceServer(s grpc.ServiceRegistrar, srv AuctionServiceSer
 }
 
 func _AuctionService_SendBid_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(AuctionServiceServer).SendBid(&grpc.GenericServerStream[UserBidRequest, BidResponse]{ServerStream: stream})
+	m := new(UserBidRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(AuctionServiceServer).SendBid(m, &grpc.GenericServerStream[UserBidRequest, BidResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AuctionService_SendBidServer = grpc.BidiStreamingServer[UserBidRequest, BidResponse]
+type AuctionService_SendBidServer = grpc.ServerStreamingServer[BidResponse]
 
 func _AuctionService_SendResult_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(Empty)
@@ -144,7 +154,6 @@ var AuctionService_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "SendBid",
 			Handler:       _AuctionService_SendBid_Handler,
 			ServerStreams: true,
-			ClientStreams: true,
 		},
 		{
 			StreamName:    "SendResult",

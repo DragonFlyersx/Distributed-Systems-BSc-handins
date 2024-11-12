@@ -49,7 +49,7 @@ func main() {
 	defer conn.Close()
 
 	// Create a client
-	client := 
+	client := new AuctionClient)
 	var userCommand string
 
 	for {
@@ -61,5 +61,4 @@ func main() {
 			 
 		} 
 	}
-	select {} // This will block the main goroutine indefinitely
 }
