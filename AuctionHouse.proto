@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package log;
+
+option go_package = "/AuctionHouse";
+
+service AuctionService {
+    rpc SendBid(stream UserBidRequest) returns (stream BidResponse);
+    rpc SendResult(Empty) returns (stream ResultResponse);
+}
+
+message UserBidRequest {
+    int32 bidAmount = 1;
+    int32 ID = 2;
+}
+
+message Empty {}
+
+message BidResponse {
+    bool ack = 1;
+}
+
+message ResultResponse {
+    int32 result = 1;
+    string status = 2;
+}
+
