@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+var CurrentHighestBidder string = ""
 var CurrentHighestBid int32 = 0
 var AuctionStatus string = "Closed"
 var AuctionServer server // Server instance
@@ -18,6 +19,10 @@ var AuctionServer server // Server instance
 type server struct {
 	AuctionHouse.AuctionServiceServer
 	clients map[AuctionHouse.AuctionService_SendResultServer]bool
+}
+
+type auctionServiceServer struct {
+	AuctionHouse.UnimplementedAuctionServiceServer
 }
 
 // Constructor for the server
@@ -32,24 +37,37 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 	if err != nil {
 		log.Fatalf("Failed to receive a bid: %v", err)
 	}
-	log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
-	CurrentHighestBid = userBidRequest.BidAmount // Update the current highest bid
-	log.Printf("Current highest bid: %v by %s", CurrentHighestBid, userBidRequest.BidderName)
 
-	return stream.Send(&AuctionHouse.BidResponse{Ack: true})
+	// Register the client if not already registered
+	if _, exists := s.clients[stream]; !exists {
+		s.clients[stream] = true
+	}
+
+	log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
+	if userBidRequest.BidAmount > CurrentHighestBid { // If the bid is higher than the current highest bid
+		CurrentHighestBid = userBidRequest.BidAmount // Update the current highest bid
+		CurrentHighestBidder = userBidRequest.BidderName
+		log.Printf("Current highest bid: %v by %s", CurrentHighestBid, userBidRequest.BidderName)
+
+		return stream.Send(&AuctionHouse.BidResponse{Ack: true})
+	}
+
+	// If the bid is lower than the current highest bid then send a response to the client
+	return stream.Send(&AuctionHouse.BidResponse{Ack: false})
 }
 
-func SendResult(stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
+func (s *server) SendResult(stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
 	result := CurrentHighestBid
+	Winning_Person := CurrentHighestBidder
 	if AuctionStatus == "Open" { // If the auction is still open
 		log.Printf("Result sent to clients: %v", result)
-		for client := range AuctionServer.clients {
-			client.Send(&AuctionHouse.ResultResponse{Status: "Open", Result: result})
+		for client := range s.clients {
+			client.Send(&AuctionHouse.ResultResponse{Status: "Open", Result: result, WinnerName: Winning_Person})
 		}
 	} else { // If the auction is closed
 		log.Printf("Result sent to clients: %v", result)
-		for client := range AuctionServer.clients {
-			client.Send(&AuctionHouse.ResultResponse{Status: "Closed", Result: result})
+		for client := range s.clients {
+			client.Send(&AuctionHouse.ResultResponse{Status: "Closed", Result: result, WinnerName: Winning_Person})
 		}
 	}
 	return nil
@@ -64,7 +82,8 @@ func startServer(port string, ip string) {
 
 	//gRPC server instance
 	grpcServer := grpc.NewServer()
-	AuctionHouse.RegisterAuctionServiceServer(grpcServer)
+	service := &auctionServiceServer{}
+	AuctionHouse.RegisterAuctionServiceServer(grpcServer, service)
 
 	//listen and server
 	log.Printf("Ready to receive and listening on port %s", port)
@@ -73,6 +92,10 @@ func startServer(port string, ip string) {
 	if err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+}
+
+func (s *server) ClearRegisteredUsers() {
+	s.clients = make(map[AuctionHouse.AuctionService_SendResultServer]bool)
 }
 
 func main() {
@@ -84,7 +107,7 @@ func main() {
 	for {
 		fmt.Scan(&userCommand)
 
-		if userCommand == "Start Auction" && AuctionStatus == "Closed" { // Request the current highest bid from the server
+		if userCommand == "Start" && AuctionStatus == "Closed" { // Request the current highest bid from the server
 			AuctionStatus = "Open"
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
