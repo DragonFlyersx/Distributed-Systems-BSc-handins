@@ -17,12 +17,8 @@ var AuctionStatus string = "Closed"
 var AuctionServer server // Server instance
 
 type server struct {
-	AuctionHouse.AuctionServiceServer
-	clients map[AuctionHouse.AuctionService_SendResultServer]bool
-}
-
-type auctionServiceServer struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
+	clients map[AuctionHouse.AuctionService_SendResultServer]bool
 }
 
 // Constructor for the server
@@ -112,7 +108,7 @@ func startServer(port string, ip string) {
 
 	//gRPC server instance
 	grpcServer := grpc.NewServer()
-	service := &auctionServiceServer{}
+	service := newServer()
 	AuctionHouse.RegisterAuctionServiceServer(grpcServer, service)
 
 	//listen and server

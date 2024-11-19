@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"log"
 	AuctionHouse "main/Handin5"
-	"os"
+
+	//"os"
 
 	"google.golang.org/grpc"
 )
@@ -58,9 +59,10 @@ func queryResult(client AuctionHouse.AuctionServiceClient) {
 		log.Fatalf("Error receiving bid: %v", err)
 	}
 
+	var resultInfo = result.GetResultResponse()
 	// Print the result
 	log.Printf("Result received from server: %v", result)
-	log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", result.Status, result.Result, result.WinnerName)
+	log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
 }
 
 // Method with own go routine that constantly looks for new messages from the server
@@ -87,18 +89,18 @@ func SendResult(client AuctionHouse.AuctionServiceClient) {
 func main() {
 	// Set up a connection to the server
 	// needs to connect to 3 server Nodes
-	NodeOneAddress := "localhost:50051"   // Address to the server
-	NodeTwoAddress := "localhost:50052"   // Address to the server
-	NodeThreeAddress := "localhost:50053" // Address to the server
+	NodeOneAddress := "localhost:50051" // Address to the server
+	//NodeTwoAddress := "localhost:50052"   // Address to the server
+	//NodeThreeAddress := "localhost:50053" // Address to the server
+	/*
+		clientId, err := os.Hostname() //
+		if err != nil {
+			//log.Fatalf("Error getting hostname: %v", err)
+			log.Printf("Error getting hostname: %v", err)
+			clientId = "Unknown"
+		}*/
 
-	clientId, err := os.Hostname() //
-	if err != nil {
-		//log.Fatalf("Error getting hostname: %v", err)
-		log.Printf("Error getting hostname: %v", err)
-		clientId = "Unknown"
-	}
-
-	nodeAddresses := []string{NodeOneAddress, NodeTwoAddress, NodeThreeAddress}
+	nodeAddresses := []string{NodeOneAddress}
 
 	connections := make(map[string]*grpc.ClientConn)
 	clients := make(map[string]AuctionHouse.AuctionServiceClient)
