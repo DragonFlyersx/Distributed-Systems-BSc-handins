@@ -27,8 +27,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type AuctionServiceClient interface {
-	SendBid(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UserBidRequest, BidResponse], error)
-	SendResult(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ResultResponse], error)
+	SendBid(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UserBidRequest, GeneralResponse], error)
+	SendResult(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GeneralResponse], error)
 }
 
 type auctionServiceClient struct {
@@ -39,26 +39,26 @@ func NewAuctionServiceClient(cc grpc.ClientConnInterface) AuctionServiceClient {
 	return &auctionServiceClient{cc}
 }
 
-func (c *auctionServiceClient) SendBid(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UserBidRequest, BidResponse], error) {
+func (c *auctionServiceClient) SendBid(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[UserBidRequest, GeneralResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &AuctionService_ServiceDesc.Streams[0], AuctionService_SendBid_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[UserBidRequest, BidResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[UserBidRequest, GeneralResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AuctionService_SendBidClient = grpc.BidiStreamingClient[UserBidRequest, BidResponse]
+type AuctionService_SendBidClient = grpc.BidiStreamingClient[UserBidRequest, GeneralResponse]
 
-func (c *auctionServiceClient) SendResult(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ResultResponse], error) {
+func (c *auctionServiceClient) SendResult(ctx context.Context, in *Empty, opts ...grpc.CallOption) (grpc.ServerStreamingClient[GeneralResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &AuctionService_ServiceDesc.Streams[1], AuctionService_SendResult_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[Empty, ResultResponse]{ClientStream: stream}
+	x := &grpc.GenericClientStream[Empty, GeneralResponse]{ClientStream: stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -69,14 +69,14 @@ func (c *auctionServiceClient) SendResult(ctx context.Context, in *Empty, opts .
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AuctionService_SendResultClient = grpc.ServerStreamingClient[ResultResponse]
+type AuctionService_SendResultClient = grpc.ServerStreamingClient[GeneralResponse]
 
 // AuctionServiceServer is the server API for AuctionService service.
 // All implementations must embed UnimplementedAuctionServiceServer
 // for forward compatibility.
 type AuctionServiceServer interface {
-	SendBid(grpc.BidiStreamingServer[UserBidRequest, BidResponse]) error
-	SendResult(*Empty, grpc.ServerStreamingServer[ResultResponse]) error
+	SendBid(grpc.BidiStreamingServer[UserBidRequest, GeneralResponse]) error
+	SendResult(*Empty, grpc.ServerStreamingServer[GeneralResponse]) error
 	mustEmbedUnimplementedAuctionServiceServer()
 }
 
@@ -87,10 +87,10 @@ type AuctionServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAuctionServiceServer struct{}
 
-func (UnimplementedAuctionServiceServer) SendBid(grpc.BidiStreamingServer[UserBidRequest, BidResponse]) error {
+func (UnimplementedAuctionServiceServer) SendBid(grpc.BidiStreamingServer[UserBidRequest, GeneralResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method SendBid not implemented")
 }
-func (UnimplementedAuctionServiceServer) SendResult(*Empty, grpc.ServerStreamingServer[ResultResponse]) error {
+func (UnimplementedAuctionServiceServer) SendResult(*Empty, grpc.ServerStreamingServer[GeneralResponse]) error {
 	return status.Errorf(codes.Unimplemented, "method SendResult not implemented")
 }
 func (UnimplementedAuctionServiceServer) mustEmbedUnimplementedAuctionServiceServer() {}
@@ -115,22 +115,22 @@ func RegisterAuctionServiceServer(s grpc.ServiceRegistrar, srv AuctionServiceSer
 }
 
 func _AuctionService_SendBid_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(AuctionServiceServer).SendBid(&grpc.GenericServerStream[UserBidRequest, BidResponse]{ServerStream: stream})
+	return srv.(AuctionServiceServer).SendBid(&grpc.GenericServerStream[UserBidRequest, GeneralResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AuctionService_SendBidServer = grpc.BidiStreamingServer[UserBidRequest, BidResponse]
+type AuctionService_SendBidServer = grpc.BidiStreamingServer[UserBidRequest, GeneralResponse]
 
 func _AuctionService_SendResult_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(Empty)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(AuctionServiceServer).SendResult(m, &grpc.GenericServerStream[Empty, ResultResponse]{ServerStream: stream})
+	return srv.(AuctionServiceServer).SendResult(m, &grpc.GenericServerStream[Empty, GeneralResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type AuctionService_SendResultServer = grpc.ServerStreamingServer[ResultResponse]
+type AuctionService_SendResultServer = grpc.ServerStreamingServer[GeneralResponse]
 
 // AuctionService_ServiceDesc is the grpc.ServiceDesc for AuctionService service.
 // It's only intended for direct use with grpc.RegisterService,

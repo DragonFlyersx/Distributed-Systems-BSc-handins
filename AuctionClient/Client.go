@@ -76,8 +76,11 @@ func SendResult(client AuctionHouse.AuctionServiceClient) {
 		if err != nil {
 			log.Fatalf("Error receiving bid: %v", err)
 		}
+
+		var resultInfo = result.GetResultResponse()
+
 		// Print the result
-		log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", result.Status, result.Result, result.WinnerName)
+		log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
 	}
 }
 

@@ -33,6 +33,7 @@ func newServer() *server {
 }
 
 func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receive bid from client
+
 	userBidRequest, err := stream.Recv()
 	if err != nil {
 		log.Fatalf("Failed to receive a bid: %v", err)
@@ -44,31 +45,60 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 	}
 
 	log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
-	if userBidRequest.BidAmount > CurrentHighestBid { // If the bid is higher than the current highest bid
-		CurrentHighestBid = userBidRequest.BidAmount // Update the current highest bid
-		CurrentHighestBidder = userBidRequest.BidderName
-		log.Printf("Current highest bid: %v by %s", CurrentHighestBid, userBidRequest.BidderName)
+	var response AuctionHouse.GeneralResponse
 
-		return stream.Send(&AuctionHouse.BidResponse{Ack: true})
+	// Check if bid is higher than current highest bid
+	if userBidRequest.BidAmount > CurrentHighestBid {
+		CurrentHighestBid = userBidRequest.BidAmount
+		CurrentHighestBidder = userBidRequest.BidderName
+		log.Printf("Current highest bid updated: %v by %s", CurrentHighestBid, CurrentHighestBidder)
+
+		response.Response = &AuctionHouse.GeneralResponse_BidResponse{
+			BidResponse: &AuctionHouse.BidResponse{Ack: true},
+		}
+	} else {
+		response.Response = &AuctionHouse.GeneralResponse_BidResponse{
+			BidResponse: &AuctionHouse.BidResponse{Ack: false},
+		}
 	}
 
 	// If the bid is lower than the current highest bid then send a response to the client
-	return stream.Send(&AuctionHouse.BidResponse{Ack: false})
+	return stream.Send(&response)
+
 }
 
-func (s *server) SendResult(stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
-	result := CurrentHighestBid
-	Winning_Person := CurrentHighestBidder
-	if AuctionStatus == "Open" { // If the auction is still open
-		log.Printf("Result sent to clients: %v", result)
-		for client := range s.clients {
-			client.Send(&AuctionHouse.ResultResponse{Status: "Open", Result: result, WinnerName: Winning_Person})
+func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
+	for {
+		result := CurrentHighestBid
+		Winning_Person := CurrentHighestBidder
+		var response AuctionHouse.GeneralResponse
+
+		if AuctionStatus == "Open" { // If the auction is still open
+			log.Printf("Result sent to clients: %v", result)
+			response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
+				ResultResponse: &AuctionHouse.ResultResponse{
+					Result:     result,
+					Status:     "Open",
+					WinnerName: Winning_Person,
+				},
+			}
+		} else { // If the auction is closed
+			log.Printf("Result sent to clients: %v", result)
+			response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
+				ResultResponse: &AuctionHouse.ResultResponse{
+					Result:     result,
+					Status:     "Closed",
+					WinnerName: Winning_Person,
+				},
+			}
 		}
-	} else { // If the auction is closed
-		log.Printf("Result sent to clients: %v", result)
-		for client := range s.clients {
-			client.Send(&AuctionHouse.ResultResponse{Status: "Closed", Result: result, WinnerName: Winning_Person})
+
+		if err := stream.Send(&response); err != nil {
+			log.Printf("Failed to send result to client: %v", err)
+			return err
 		}
+
+		time.Sleep(5 * time.Second) // Adjust the sleep duration as needed
 	}
 	return nil
 }

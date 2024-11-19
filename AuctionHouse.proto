@@ -5,8 +5,16 @@ package log;
 option go_package = "/AuctionHouse";
 
 service AuctionService {
-    rpc SendBid(stream UserBidRequest) returns (stream BidResponse);
-    rpc SendResult(Empty) returns (stream ResultResponse);
+    rpc SendBid(stream UserBidRequest) returns (stream GeneralResponse);
+    rpc SendResult(Empty) returns (stream GeneralResponse);
+}
+
+// General response type 
+message GeneralResponse {
+        oneof response {
+        BidResponse bidResponse = 1;
+        ResultResponse resultResponse = 2;
+    }
 }
 
 message UserBidRequest {
