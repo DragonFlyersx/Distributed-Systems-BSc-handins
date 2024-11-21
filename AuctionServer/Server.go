@@ -15,6 +15,7 @@ var CurrentHighestBidder string = ""
 var CurrentHighestBid int32 = 0
 var AuctionStatus string = "Closed"
 var AuctionServer server // Server instance
+var receivedBid = false
 
 type server struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
@@ -35,11 +36,6 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 		log.Fatalf("Failed to receive a bid: %v", err)
 	}
 
-	// Register the client if not already registered
-	if _, exists := s.clients[stream]; !exists {
-		s.clients[stream] = true
-	}
-
 	log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
 	var response AuctionHouse.GeneralResponse
 
@@ -58,42 +54,54 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 		}
 	}
 
-	// If the bid is lower than the current highest bid then send a response to the client
-	return stream.Send(&response)
+	// Register the client
+	s.clients[stream] = true
 
+	if response.Response.(*AuctionHouse.GeneralResponse_BidResponse).BidResponse.Ack == true {
+		// If the bid is lower than the current highest bid then send a response to the client along with new result
+		stream.Send(&response)
+		receivedBid = true
+		return s.SendResult(&AuctionHouse.Empty{}, stream)
+	}
+
+	// If ack is false then send a response to the client with no new result
+	return stream.Send(&response)
 }
 
 func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
+
 	for {
-		result := CurrentHighestBid
-		Winning_Person := CurrentHighestBidder
-		var response AuctionHouse.GeneralResponse
+		if receivedBid == true {
+			result := CurrentHighestBid
+			Winning_Person := CurrentHighestBidder
+			var response AuctionHouse.GeneralResponse
 
-		if AuctionStatus == "Open" { // If the auction is still open
-			log.Printf("Result sent to clients: %v", result)
-			response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
-				ResultResponse: &AuctionHouse.ResultResponse{
-					Result:     result,
-					Status:     "Open",
-					WinnerName: Winning_Person,
-				},
+			if AuctionStatus == "Open" { // If the auction is still open
+				log.Printf("Result sent to clients: %v", result)
+				response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
+					ResultResponse: &AuctionHouse.ResultResponse{
+						Result:     result,
+						Status:     "Open",
+						WinnerName: Winning_Person,
+					},
+				}
+			} else { // If the auction is closed
+				log.Printf("Result sent to clients: %v", result)
+				response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
+					ResultResponse: &AuctionHouse.ResultResponse{
+						Result:     result,
+						Status:     "Closed",
+						WinnerName: Winning_Person,
+					},
+				}
 			}
-		} else { // If the auction is closed
-			log.Printf("Result sent to clients: %v", result)
-			response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
-				ResultResponse: &AuctionHouse.ResultResponse{
-					Result:     result,
-					Status:     "Closed",
-					WinnerName: Winning_Person,
-				},
+
+			if err := stream.Send(&response); err != nil {
+				log.Printf("Failed to send result to client: %v", err)
+				return err
 			}
+			receivedBid = false
 		}
-
-		if err := stream.Send(&response); err != nil {
-			log.Printf("Failed to send result to client: %v", err)
-			return err
-		}
-
 		time.Sleep(5 * time.Second) // Adjust the sleep duration as needed
 	}
 	return nil
@@ -137,6 +145,7 @@ func main() {
 			AuctionStatus = "Open"
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
+			receivedBid = true
 			time.Sleep(100 * time.Second) // The auction runs for 100 seconds
 			// send result of auction to all clients
 
