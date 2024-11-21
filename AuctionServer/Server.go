@@ -153,7 +153,7 @@ func main() {
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
 
-			timeleft := 5
+			timeleft := 100
 			for timeleft > 0 {
 				timeleft--
 				time.Sleep(1 * time.Second)
