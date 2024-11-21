@@ -30,85 +30,71 @@ func newServer() *server {
 }
 
 func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receive bid from client
-	log.Printf("SendBid function called")
+	log.Printf("Server SendBid function called")
+
+	// Add the client stream to the clients map
+	s.clients[stream] = true
+
 	for {
 		userBidRequest, err := stream.Recv()
-		log.Printf("server get: " + userBidRequest.BidderName)
-
 		if err != nil {
-			log.Fatalf("Failed to receive a bid: %v", err)
+			log.Printf("Failed to receive a bid: %v", err)
+			return err
 		}
 
-		log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
-		var response AuctionHouse.GeneralResponse
+		log.Printf("Bid received from %s : %v", userBidRequest.BidderName, userBidRequest.BidAmount)
 
 		// Check if bid is higher than current highest bid
 		if userBidRequest.BidAmount > CurrentHighestBid {
 			CurrentHighestBid = userBidRequest.BidAmount
 			CurrentHighestBidder = userBidRequest.BidderName
-			log.Printf("Current highest bid updated: %v by %s", CurrentHighestBid, CurrentHighestBidder)
+			log.Printf("New highest bid: %v by %s", CurrentHighestBid, CurrentHighestBidder)
 
-			response.Response = &AuctionHouse.GeneralResponse_BidResponse{
-				BidResponse: &AuctionHouse.BidResponse{Ack: true},
-			}
-		} else {
-			response.Response = &AuctionHouse.GeneralResponse_BidResponse{
-				BidResponse: &AuctionHouse.BidResponse{Ack: false},
-			}
-		}
-
-		// Register the client
-		s.clients[stream] = true
-
-		if response.Response.(*AuctionHouse.GeneralResponse_BidResponse).BidResponse.Ack == true {
-			// If the bid is lower than the current highest bid then send a response to the client along with new result
-			stream.Send(&response)
+			// Trigger sending results to all clients
 			receivedBid = true
-			return s.SendResult(&AuctionHouse.Empty{}, stream)
 		}
 
-		// If ack is false then send a response to the client with no new result
-		return stream.Send(&response)
+		// Send ACK to the client
+		response := &AuctionHouse.GeneralResponse{
+			Response: &AuctionHouse.GeneralResponse_BidResponse{
+				BidResponse: &AuctionHouse.BidResponse{Ack: true},
+			},
+		}
+		if err := stream.Send(response); err != nil {
+			log.Printf("Error sending ACK: %v", err)
+			return err
+		}
 	}
 }
 
-func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
+func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionService_SendResultServer) error { // send results to the client
+	log.Printf("SendResult function called")
 
 	for {
-		if receivedBid == true {
-			result := CurrentHighestBid
-			Winning_Person := CurrentHighestBidder
-			var response AuctionHouse.GeneralResponse
-
-			if AuctionStatus == "Open" { // If the auction is still open
-				log.Printf("Result sent to clients: %v", result)
-				response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
+		if receivedBid {
+			// Send the latest auction result to the client
+			result := &AuctionHouse.GeneralResponse{
+				Response: &AuctionHouse.GeneralResponse_ResultResponse{
 					ResultResponse: &AuctionHouse.ResultResponse{
-						Result:     result,
-						Status:     "Open",
-						WinnerName: Winning_Person,
+						Result:     CurrentHighestBid,
+						Status:     AuctionStatus,
+						WinnerName: CurrentHighestBidder,
 					},
-				}
-			} else { // If the auction is closed
-				log.Printf("Result sent to clients: %v", result)
-				response.Response = &AuctionHouse.GeneralResponse_ResultResponse{
-					ResultResponse: &AuctionHouse.ResultResponse{
-						Result:     result,
-						Status:     "Closed",
-						WinnerName: Winning_Person,
-					},
-				}
+				},
 			}
 
-			if err := stream.Send(&response); err != nil {
-				log.Printf("Failed to send result to client: %v", err)
+			log.Printf("Sending updated auction result to client: %v", result)
+			if err := stream.Send(result); err != nil {
+				log.Printf("Error sending result: %v", err)
 				return err
 			}
+
+			// Reset the flag
 			receivedBid = false
 		}
-		time.Sleep(2 * time.Second) // Adjust the sleep duration as needed
+
+		time.Sleep(1 * time.Second) // Wait before checking for the next update
 	}
-	return nil
 }
 
 func startServer(port string, ip string) {

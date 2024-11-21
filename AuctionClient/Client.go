@@ -24,7 +24,6 @@ type UserBidRequest struct {
 // should be able to query the system for the result / highest bid
 
 func (bidRequest UserBidRequest) SendBid(client AuctionHouse.AuctionServiceClient, BidAmount int32) error {
-	log.Printf("Send bid was called")
 	bidRequest.BidAmount = BidAmount
 	bidRequest.BidderName = clientId
 
@@ -71,7 +70,7 @@ func queryResult(client AuctionHouse.AuctionServiceClient) {
 
 	var resultInfo = result.GetResultResponse()
 	// Print the result
-	log.Printf("Result received from server: %v", result)
+	log.Printf("Result received from server:")
 	log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
 }
 
@@ -82,11 +81,13 @@ func SendResult(client AuctionHouse.AuctionServiceClient) {
 	if err != nil {
 		log.Fatalf("Error sending bid: %v", err)
 	}
+
 	// Receive the result from the server
 	for {
 		result, err := stream.Recv()
 		if err != nil {
-			log.Fatalf("Error receiving bid: %v", err)
+			log.Printf("Error receiving bid: %v", err)
+			break
 		}
 
 		var resultInfo = result.GetResultResponse()
@@ -152,25 +153,23 @@ func main() {
 			}
 
 		} else if userCommand == "Bid" { // send Bid to the server
-			for {
-				log.Printf("Enter a Bid Amount: ")
-				_, err := fmt.Scan(&bidfromclient)
-				if err != nil {
-					log.Fatalf("Error This is not an integer: %v", err)
-				}
-
-				log.Printf("Created UserBidRequest")
-				log.Printf("The bid from the client is: %d", bidfromclient)
-				// Create an instance of UserBidRequest
-				var bidRequest UserBidRequest
-				for _, client := range clients {
-					err = bidRequest.SendBid(client, bidfromclient)
-					if err != nil {
-						log.Fatalf("Error sending bid: %v", err)
-					}
-				}
-
+			//for {
+			log.Printf("Enter a Bid Amount: ")
+			_, err := fmt.Scan(&bidfromclient)
+			if err != nil {
+				log.Fatalf("Error This is not an integer: %v", err)
 			}
+
+			// Create an instance of UserBidRequest
+			var bidRequest UserBidRequest
+			for _, client := range clients {
+				err = bidRequest.SendBid(client, bidfromclient)
+				if err != nil {
+					log.Fatalf("Error sending bid: %v", err)
+				}
+			}
+
+			//}
 		}
 	}
 }
