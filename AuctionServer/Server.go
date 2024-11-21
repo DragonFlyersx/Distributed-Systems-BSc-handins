@@ -30,42 +30,46 @@ func newServer() *server {
 }
 
 func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receive bid from client
+	log.Printf("SendBid function called")
+	for {
+		userBidRequest, err := stream.Recv()
+		log.Printf("server get: " + userBidRequest.BidderName)
 
-	userBidRequest, err := stream.Recv()
-	if err != nil {
-		log.Fatalf("Failed to receive a bid: %v", err)
-	}
-
-	log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
-	var response AuctionHouse.GeneralResponse
-
-	// Check if bid is higher than current highest bid
-	if userBidRequest.BidAmount > CurrentHighestBid {
-		CurrentHighestBid = userBidRequest.BidAmount
-		CurrentHighestBidder = userBidRequest.BidderName
-		log.Printf("Current highest bid updated: %v by %s", CurrentHighestBid, CurrentHighestBidder)
-
-		response.Response = &AuctionHouse.GeneralResponse_BidResponse{
-			BidResponse: &AuctionHouse.BidResponse{Ack: true},
+		if err != nil {
+			log.Fatalf("Failed to receive a bid: %v", err)
 		}
-	} else {
-		response.Response = &AuctionHouse.GeneralResponse_BidResponse{
-			BidResponse: &AuctionHouse.BidResponse{Ack: false},
+
+		log.Printf("Bid received from %s : %v", userBidRequest.BidAmount, userBidRequest.BidderName)
+		var response AuctionHouse.GeneralResponse
+
+		// Check if bid is higher than current highest bid
+		if userBidRequest.BidAmount > CurrentHighestBid {
+			CurrentHighestBid = userBidRequest.BidAmount
+			CurrentHighestBidder = userBidRequest.BidderName
+			log.Printf("Current highest bid updated: %v by %s", CurrentHighestBid, CurrentHighestBidder)
+
+			response.Response = &AuctionHouse.GeneralResponse_BidResponse{
+				BidResponse: &AuctionHouse.BidResponse{Ack: true},
+			}
+		} else {
+			response.Response = &AuctionHouse.GeneralResponse_BidResponse{
+				BidResponse: &AuctionHouse.BidResponse{Ack: false},
+			}
 		}
+
+		// Register the client
+		s.clients[stream] = true
+
+		if response.Response.(*AuctionHouse.GeneralResponse_BidResponse).BidResponse.Ack == true {
+			// If the bid is lower than the current highest bid then send a response to the client along with new result
+			stream.Send(&response)
+			receivedBid = true
+			return s.SendResult(&AuctionHouse.Empty{}, stream)
+		}
+
+		// If ack is false then send a response to the client with no new result
+		return stream.Send(&response)
 	}
-
-	// Register the client
-	s.clients[stream] = true
-
-	if response.Response.(*AuctionHouse.GeneralResponse_BidResponse).BidResponse.Ack == true {
-		// If the bid is lower than the current highest bid then send a response to the client along with new result
-		stream.Send(&response)
-		receivedBid = true
-		return s.SendResult(&AuctionHouse.Empty{}, stream)
-	}
-
-	// If ack is false then send a response to the client with no new result
-	return stream.Send(&response)
 }
 
 func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionService_SendResultServer) error { // sends result to client
@@ -102,7 +106,7 @@ func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionS
 			}
 			receivedBid = false
 		}
-		time.Sleep(5 * time.Second) // Adjust the sleep duration as needed
+		time.Sleep(2 * time.Second) // Adjust the sleep duration as needed
 	}
 	return nil
 }

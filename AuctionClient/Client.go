@@ -24,7 +24,7 @@ type UserBidRequest struct {
 // should be able to query the system for the result / highest bid
 
 func (bidRequest UserBidRequest) SendBid(client AuctionHouse.AuctionServiceClient, BidAmount int32) error {
-
+	log.Printf("Send bid was called")
 	bidRequest.BidAmount = BidAmount
 	bidRequest.BidderName = clientId
 
@@ -33,6 +33,16 @@ func (bidRequest UserBidRequest) SendBid(client AuctionHouse.AuctionServiceClien
 	if err != nil {
 		log.Fatalf("Error sending bid: %v", err)
 	}
+
+	err = stream.Send(&AuctionHouse.UserBidRequest{
+		BidAmount:  bidRequest.BidAmount,  // The amount being bid
+		BidderName: bidRequest.BidderName, // The name of the bidder
+	})
+	if err != nil {
+		log.Fatalf("Error sending bid: %v", err)
+		return err
+	}
+
 	// Receive the response from the server
 	response, err := stream.Recv()
 	if err != nil {
@@ -149,6 +159,8 @@ func main() {
 					log.Fatalf("Error This is not an integer: %v", err)
 				}
 
+				log.Printf("Created UserBidRequest")
+				log.Printf("The bid from the client is: %d", bidfromclient)
 				// Create an instance of UserBidRequest
 				var bidRequest UserBidRequest
 				for _, client := range clients {
