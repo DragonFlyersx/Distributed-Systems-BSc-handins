@@ -49,17 +49,29 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 			CurrentHighestBid = userBidRequest.BidAmount
 			CurrentHighestBidder = userBidRequest.BidderName
 			log.Printf("New highest bid: %v by %s", CurrentHighestBid, CurrentHighestBidder)
-		}
+			// Send ACK to the client
+			response := &AuctionHouse.GeneralResponse{
+				Response: &AuctionHouse.GeneralResponse_BidResponse{
+					BidResponse: &AuctionHouse.BidResponse{Ack: true},
+				},
+			}
+			if err := stream.Send(response); err != nil {
+				log.Printf("Error sending ACK: %v", err)
+				return err
+			}
 
-		// Send ACK to the client
-		response := &AuctionHouse.GeneralResponse{
-			Response: &AuctionHouse.GeneralResponse_BidResponse{
-				BidResponse: &AuctionHouse.BidResponse{Ack: true},
-			},
-		}
-		if err := stream.Send(response); err != nil {
-			log.Printf("Error sending ACK: %v", err)
-			return err
+		} else {
+			log.Printf("Bid too low")
+			// Send NACK to the client (NACK means Not Acknowledged)
+			response := &AuctionHouse.GeneralResponse{
+				Response: &AuctionHouse.GeneralResponse_BidResponse{
+					BidResponse: &AuctionHouse.BidResponse{Ack: false},
+				},
+			}
+			if err := stream.Send(response); err != nil {
+				log.Printf("Error sending NACK: %v", err)
+				return err
+			}
 		}
 	}
 }
@@ -119,7 +131,15 @@ func main() {
 			AuctionStatus = "Open"
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
-			time.Sleep(100 * time.Second) // The auction runs for 100 seconds
+
+			timeleft := 100
+			for timeleft > 0 {
+				timeleft--
+				time.Sleep(1 * time.Second)
+				log.Printf("Time left: %d", timeleft)
+			}
+
+			//time.Sleep(100 * time.Second) // The auction runs for 100 seconds
 			// send result of auction to all clients
 
 			AuctionStatus = "Closed"
