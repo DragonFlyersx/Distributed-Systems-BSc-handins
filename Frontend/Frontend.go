@@ -1,22 +1,29 @@
-package main
+package frontend
 
 import (
 	"context"
+	"fmt"
 	"log"
-	"sync"
-
 	AuctionHouse "main/Handin5"
 
 	"google.golang.org/grpc"
 )
 
+var clientId string = ""
+var bidfromclient int32 = 0
+
 type Frontend struct {
 	clients []AuctionHouse.AuctionServiceClient
 }
 
-func NewFrontend(addresses []string) *Frontend {
+func NewFrontend() *Frontend {
+	NodeOneAddress := "localhost:50051" // Address to the server
+	// NodeTwoAddress := "localhost:50052"   // Address to the server
+	// NodeThreeAddress := "localhost:50053" // Address to the server
+	nodeAddresses := []string{NodeOneAddress}
+
 	var clients []AuctionHouse.AuctionServiceClient
-	for _, address := range addresses {
+	for _, address := range nodeAddresses {
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
 			log.Fatalf("Failed to connect to server: %v", err)
@@ -27,55 +34,58 @@ func NewFrontend(addresses []string) *Frontend {
 	return &Frontend{clients: clients}
 }
 
-func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) (*AuctionHouse.GeneralResponse, error) {
-	var wg sync.WaitGroup
-	responses := make(chan *AuctionHouse.GeneralResponse, len(f.clients))
-	errors := make(chan error, len(f.clients))
-
+func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
+	var response string
 	for _, client := range f.clients {
-		wg.Add(1)
-		go func(client AuctionHouse.AuctionServiceClient) {
-			defer wg.Done()
-			stream, err := client.SendBid(context.Background())
-			if err != nil {
-				errors <- err
-				return
-			}
-			if err := stream.Send(bidRequest); err != nil {
-				errors <- err
-				return
-			}
-			response, err := stream.Recv()
-			if err != nil {
-				errors <- err
-				return
-			}
-			responses <- response
-		}(client)
-	}
+		// Send the bid to the server
+		stream, err := client.SendBid(context.Background())
+		if err != nil {
+			log.Fatalf("Error sending bid: %v", err)
+		}
 
-	wg.Wait()
-	close(responses)
-	close(errors)
+		err = stream.Send(&AuctionHouse.UserBidRequest{
+			BidAmount:  bidRequest.BidAmount,  // The amount being bid
+			BidderName: bidRequest.BidderName, // The name of the bidder
+		})
+		if err != nil {
+			log.Fatalf("Error sending bid: %v", err)
+		}
 
-	// Determine the correct response based on majority voting
-	responseCount := make(map[*AuctionHouse.GeneralResponse]int)
-	for response := range responses {
-		responseCount[response]++
-	}
-
-	var correctResponse *AuctionHouse.GeneralResponse
-	maxCount := 0
-	for response, count := range responseCount {
-		if count > maxCount {
-			maxCount = count
-			correctResponse = response
+		// Receive the response from the server
+		serverResponse, err := stream.Recv()
+		if err != nil {
+			log.Fatalf("Error receiving bid: %v", err)
+		}
+		// Print the response
+		if serverResponse.GetBidResponse().Ack { // If the bid was accepted
+			response = "[YOUR BID WAS ACCEPTED]\n"
+		} else { // If the bid was too low
+			response = "[YOUR BID WAS TOO LOW]\n"
 		}
 	}
+	// Return general response here
+	return response
+}
 
-	if correctResponse == nil {
-		return nil, <-errors
+// Method with own go routine that constantly looks for new messages from the server
+func (f *Frontend) SendResult() string {
+	var response string
+
+	// Request the current highest bid from the server
+	for _, client := range f.clients {
+
+		result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
+		if err != nil {
+			log.Fatalf("Error starting result stream: %v", err)
+		}
+
+		var resultInfo = result.GetResultResponse()
+
+		// Print the result
+		log.Printf("Result received from server:")
+		response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
 	}
 
-	return correctResponse, nil
+	// Return general response here
+	return response
 }

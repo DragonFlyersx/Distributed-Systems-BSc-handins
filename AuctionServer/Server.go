@@ -139,8 +139,21 @@ func main() {
 				log.Printf("Time left: %d", timeleft)
 			}
 
-			//time.Sleep(100 * time.Second) // The auction runs for 100 seconds
-			// send result of auction to all clients
+			// Send result of winner to all clients
+			for client := range AuctionServer.clients {
+				response := &AuctionHouse.GeneralResponse{
+					Response: &AuctionHouse.GeneralResponse_ResultResponse{
+						ResultResponse: &AuctionHouse.ResultResponse{
+							Result:     CurrentHighestBid,
+							Status:     AuctionStatus,
+							WinnerName: CurrentHighestBidder,
+						},
+					},
+				}
+				if err := client.Send(response); err != nil {
+					log.Printf("Error sending result: %v", err)
+				}
+			}
 
 			AuctionStatus = "Closed"
 			log.Printf("Auction closed")
