@@ -110,15 +110,13 @@ func main() {
 		}
 	}()
 
-	// Create a client
-	// Example usage of clients
-	for address, client := range clients {
-		go SendResult(client) // Start listening for results
-		log.Printf("Started listening for results from SERVER: %v", address)
-	}
 	var userCommand string
 
 	reader := bufio.NewReader(os.Stdin)
+
+	for _, client := range clients {
+		SendResult(client)
+	}
 
 	fmt.Printf("Write 'bid <amount>' to make a bid, or 'result' to get the current result. \n")
 	for {
@@ -126,7 +124,6 @@ func main() {
 		userCommand = strings.TrimSpace(userCommand)
 
 		if userCommand == "Result" { // Request the current highest bid from the server
-			log.Printf("Result command was called")
 			for _, client := range clients {
 				SendResult(client)
 			}
