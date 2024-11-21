@@ -57,47 +57,18 @@ func (bidRequest UserBidRequest) SendBid(client AuctionHouse.AuctionServiceClien
 	return nil
 }
 
-// Method to query the server for the current highest bid
-func queryResult(client AuctionHouse.AuctionServiceClient) {
+// Method with own go routine that constantly looks for new messages from the server
+func SendResult(client AuctionHouse.AuctionServiceClient) {
 	// Request the current highest bid from the server
-	stream, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
+	result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
 	if err != nil {
 		log.Fatalf("Error starting result stream: %v", err)
-	}
-
-	// Receive the result from the server
-	result, err := stream.Recv()
-	if err != nil {
-		log.Fatalf("Error receiving bid: %v", err)
 	}
 
 	var resultInfo = result.GetResultResponse()
 	// Print the result
 	log.Printf("Result received from server:")
 	log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
-}
-
-// Method with own go routine that constantly looks for new messages from the server
-func SendResult(client AuctionHouse.AuctionServiceClient) {
-	// Request the current highest bid from the server
-	stream, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
-	if err != nil {
-		log.Fatalf("Error sending bid: %v", err)
-	}
-
-	// Receive the result from the server
-	for {
-		result, err := stream.Recv()
-		if err != nil {
-			log.Printf("Error receiving bid: %v", err)
-			break
-		}
-
-		var resultInfo = result.GetResultResponse()
-
-		// Print the result
-		log.Printf("Auction status: %s, Current highest bid: %d, Bidder: %s", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
-	}
 }
 
 func main() {
@@ -157,7 +128,7 @@ func main() {
 		if userCommand == "Result" { // Request the current highest bid from the server
 			log.Printf("Result command was called")
 			for _, client := range clients {
-				queryResult(client)
+				SendResult(client)
 			}
 
 		} else if strings.HasPrefix(userCommand, "Bid") { // send Bid to the server

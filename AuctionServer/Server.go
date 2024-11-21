@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -15,17 +16,16 @@ var CurrentHighestBidder string = ""
 var CurrentHighestBid int32 = 0
 var AuctionStatus string = "Closed"
 var AuctionServer server // Server instance
-var receivedBid = false
 
 type server struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
-	clients map[AuctionHouse.AuctionService_SendResultServer]bool
+	clients map[AuctionHouse.AuctionService_SendBidServer]bool
 }
 
 // Constructor for the server
 func newServer() *server {
 	return &server{
-		clients: make(map[AuctionHouse.AuctionService_SendResultServer]bool), // Instantiate the map
+		clients: make(map[AuctionHouse.AuctionService_SendBidServer]bool), // Instantiate the map
 	}
 }
 
@@ -49,9 +49,6 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 			CurrentHighestBid = userBidRequest.BidAmount
 			CurrentHighestBidder = userBidRequest.BidderName
 			log.Printf("New highest bid: %v by %s", CurrentHighestBid, CurrentHighestBidder)
-
-			// Trigger sending results to all clients
-			receivedBid = true
 		}
 
 		// Send ACK to the client
@@ -67,34 +64,21 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 	}
 }
 
-func (s *server) SendResult(in *AuctionHouse.Empty, stream AuctionHouse.AuctionService_SendResultServer) error { // send results to the client
+func (s *server) SendResult(ctx context.Context, in *AuctionHouse.Empty) (*AuctionHouse.GeneralResponse, error) {
 	log.Printf("SendResult function called")
 
-	for {
-		if receivedBid {
-			// Send the latest auction result to the client
-			result := &AuctionHouse.GeneralResponse{
-				Response: &AuctionHouse.GeneralResponse_ResultResponse{
-					ResultResponse: &AuctionHouse.ResultResponse{
-						Result:     CurrentHighestBid,
-						Status:     AuctionStatus,
-						WinnerName: CurrentHighestBidder,
-					},
-				},
-			}
-
-			log.Printf("Sending updated auction result to client: %v", result)
-			if err := stream.Send(result); err != nil {
-				log.Printf("Error sending result: %v", err)
-				return err
-			}
-
-			// Reset the flag
-			receivedBid = false
-		}
-
-		time.Sleep(1 * time.Second) // Wait before checking for the next update
+	// Send immediate result when queried
+	result := &AuctionHouse.GeneralResponse{
+		Response: &AuctionHouse.GeneralResponse_ResultResponse{
+			ResultResponse: &AuctionHouse.ResultResponse{
+				Result:     CurrentHighestBid,
+				Status:     AuctionStatus,
+				WinnerName: CurrentHighestBidder,
+			},
+		},
 	}
+
+	return result, nil
 }
 
 func startServer(port string, ip string) {
@@ -119,7 +103,7 @@ func startServer(port string, ip string) {
 }
 
 func (s *server) ClearRegisteredUsers() {
-	s.clients = make(map[AuctionHouse.AuctionService_SendResultServer]bool)
+	s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
 }
 
 func main() {
@@ -135,7 +119,6 @@ func main() {
 			AuctionStatus = "Open"
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
-			receivedBid = true
 			time.Sleep(100 * time.Second) // The auction runs for 100 seconds
 			// send result of auction to all clients
 

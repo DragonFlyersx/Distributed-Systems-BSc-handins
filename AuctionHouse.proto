@@ -6,7 +6,7 @@ option go_package = "/AuctionHouse";
 
 service AuctionService {
     rpc SendBid(stream UserBidRequest) returns (stream GeneralResponse);
-    rpc SendResult(Empty) returns (stream GeneralResponse);
+    rpc SendResult(Empty) returns (GeneralResponse);
 }
 
 // General response type 
