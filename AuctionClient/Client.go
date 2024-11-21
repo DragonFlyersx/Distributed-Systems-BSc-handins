@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	AuctionHouse "main/Handin5"
+	"strconv"
+	"strings"
 
-	//"os"
+	"os"
 
 	"google.golang.org/grpc"
 )
@@ -144,32 +147,40 @@ func main() {
 	}
 	var userCommand string
 
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Printf("Write 'bid <amount>' to make a bid, or 'result' to get the current result. \n")
 	for {
-		fmt.Scan(&userCommand)
+		userCommand, _ = reader.ReadString('\n')
+		userCommand = strings.TrimSpace(userCommand)
 
 		if userCommand == "Result" { // Request the current highest bid from the server
+			log.Printf("Result command was called")
 			for _, client := range clients {
 				queryResult(client)
 			}
 
-		} else if userCommand == "Bid" { // send Bid to the server
-			//for {
-			log.Printf("Enter a Bid Amount: ")
-			_, err := fmt.Scan(&bidfromclient)
+		} else if strings.HasPrefix(userCommand, "Bid") { // send Bid to the server
+			// Parse the bid amount from the command
+			parts := strings.Split(userCommand, " ")
+			if len(parts) != 2 {
+				log.Println("Invalid command. Use: Bid <amount>")
+				continue
+			}
+
+			bidAmount, err := strconv.Atoi(parts[1])
 			if err != nil {
-				log.Fatalf("Error This is not an integer: %v", err)
+				log.Fatalf("Error: This is not an integer: %v", err)
 			}
 
 			// Create an instance of UserBidRequest
 			var bidRequest UserBidRequest
 			for _, client := range clients {
-				err = bidRequest.SendBid(client, bidfromclient)
+				err = bidRequest.SendBid(client, int32(bidAmount))
 				if err != nil {
 					log.Fatalf("Error sending bid: %v", err)
 				}
 			}
-
-			//}
 		}
 	}
 }
