@@ -118,6 +118,27 @@ func (s *server) ClearRegisteredUsers() {
 	s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
 }
 
+func (s *server) BroadcastWinner() {
+
+	log.Printf("Auction winner announced")
+	for client := range s.clients {
+		log.Printf(client.Context().Value("BidderName").(string))
+		response := &AuctionHouse.GeneralResponse{
+			Response: &AuctionHouse.GeneralResponse_ResultResponse{
+				ResultResponse: &AuctionHouse.ResultResponse{
+					Result:     CurrentHighestBid,
+					Status:     AuctionStatus,
+					WinnerName: CurrentHighestBidder,
+				},
+			},
+		}
+		if err := client.Send(response); err != nil {
+			log.Printf("Error sending result: %v", err)
+		}
+	}
+	s.ClearRegisteredUsers()
+}
+
 func main() {
 	ip := "Local:50051" // Ip of the server
 	port := "50051"
@@ -132,31 +153,16 @@ func main() {
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
 
-			timeleft := 100
+			timeleft := 5
 			for timeleft > 0 {
 				timeleft--
 				time.Sleep(1 * time.Second)
 				log.Printf("Time left: %d", timeleft)
 			}
 
-			// Send result of winner to all clients
-			for client := range AuctionServer.clients {
-				response := &AuctionHouse.GeneralResponse{
-					Response: &AuctionHouse.GeneralResponse_ResultResponse{
-						ResultResponse: &AuctionHouse.ResultResponse{
-							Result:     CurrentHighestBid,
-							Status:     AuctionStatus,
-							WinnerName: CurrentHighestBidder,
-						},
-					},
-				}
-				if err := client.Send(response); err != nil {
-					log.Printf("Error sending result: %v", err)
-				}
-			}
-
 			AuctionStatus = "Closed"
 			log.Printf("Auction closed")
+			AuctionServer.BroadcastWinner()
 		}
 	}
 }

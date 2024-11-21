@@ -56,12 +56,24 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		if err != nil {
 			log.Fatalf("Error receiving bid: %v", err)
 		}
-		// Print the response
-		if serverResponse.GetBidResponse().Ack { // If the bid was accepted
-			response = "[YOUR BID WAS ACCEPTED]\n"
-		} else { // If the bid was too low
-			response = "[YOUR BID WAS TOO LOW]\n"
+
+		switch resp := serverResponse.Response.(type) {
+		case *AuctionHouse.GeneralResponse_BidResponse:
+			if resp.BidResponse.Ack {
+				response = "[YOUR BID WAS ACCEPTED]\n"
+			} else {
+				response = "[YOUR BID WAS TOO LOW]\n"
+			}
+		case *AuctionHouse.GeneralResponse_ResultResponse:
+			response = fmt.Sprintf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
 		}
+
+		// // Print the response
+		// if serverResponse.GetBidResponse().Ack { // If the bid was accepted
+		// 	response = "[YOUR BID WAS ACCEPTED]\n"
+		// } else { // If the bid was too low
+		// 	response = "[YOUR BID WAS TOO LOW]\n"
+		// }
 	}
 	// Return general response here
 	return response
@@ -81,9 +93,15 @@ func (f *Frontend) SendResult() string {
 
 		var resultInfo = result.GetResultResponse()
 
+		if resultInfo.Status == "Closed" {
+			response = fmt.Sprintf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resultInfo.Result, resultInfo.WinnerName)
+		} else {
+			response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
+		}
+
 		// Print the result
 		log.Printf("Result received from server:")
-		response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
+
 	}
 
 	// Return general response here
