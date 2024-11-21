@@ -52,8 +52,11 @@ func (bidRequest UserBidRequest) SendBid(client AuctionHouse.AuctionServiceClien
 	}
 
 	// Print the response
-	log.Printf("Your bid has been placed: %v", response)
-
+	if response.GetBidResponse().Ack { // If the bid was accepted
+		log.Printf("[Your bid has been placed]")
+	} else { // If the bid was too low
+		log.Printf("[Your bid was too low]")
+	}
 	return nil
 }
 
