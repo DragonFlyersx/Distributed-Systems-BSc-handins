@@ -15,17 +15,20 @@ import (
 var CurrentHighestBidder string = ""
 var CurrentHighestBid int32 = 0
 var AuctionStatus string = "Closed"
-var AuctionServer server // Server instance
+
+// var AuctionServer server // Server instance
 
 type server struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
-	clients map[AuctionHouse.AuctionService_SendBidServer]bool
+	// clients map[AuctionHouse.AuctionService_SendBidServer]bool
+	clients []AuctionHouse.AuctionService_SendBidServer
 }
 
 // Constructor for the server
 func newServer() *server {
 	return &server{
-		clients: make(map[AuctionHouse.AuctionService_SendBidServer]bool), // Instantiate the map
+		clients: make([]AuctionHouse.AuctionService_SendBidServer, 0),
+		// clients: make(map[AuctionHouse.AuctionService_SendBidServer]bool), // Instantiate the map
 	}
 }
 
@@ -33,7 +36,9 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 	log.Printf("Server SendBid function called")
 
 	// Add the client stream to the clients map
-	s.clients[stream] = true
+	// s.clients[stream] = true
+	s.clients = append(s.clients, stream)
+	log.Printf("Client added. Total clients: %d", len(s.clients))
 
 	for {
 		userBidRequest, err := stream.Recv()
@@ -93,7 +98,7 @@ func (s *server) SendResult(ctx context.Context, in *AuctionHouse.Empty) (*Aucti
 	return result, nil
 }
 
-func startServer(port string, ip string) {
+func startServer(port string, ip string, s *server) {
 	//init listener
 	listen, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -102,8 +107,7 @@ func startServer(port string, ip string) {
 
 	//gRPC server instance
 	grpcServer := grpc.NewServer()
-	service := newServer()
-	AuctionHouse.RegisterAuctionServiceServer(grpcServer, service)
+	AuctionHouse.RegisterAuctionServiceServer(grpcServer, s)
 
 	//listen and server
 	log.Printf("Ready to receive and listening on port %s", port)
@@ -115,14 +119,14 @@ func startServer(port string, ip string) {
 }
 
 func (s *server) ClearRegisteredUsers() {
-	s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
+	// s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
+	s.clients = make([]AuctionHouse.AuctionService_SendBidServer, 0)
 }
 
 func (s *server) BroadcastWinner() {
-
-	log.Printf("Auction winner announced")
-	for client := range s.clients {
-		log.Printf(client.Context().Value("BidderName").(string))
+	log.Printf("BroadcastWinner function called")
+	log.Printf("Number of clients: %d", len(s.clients))
+	for _, client := range s.clients {
 		response := &AuctionHouse.GeneralResponse{
 			Response: &AuctionHouse.GeneralResponse_ResultResponse{
 				ResultResponse: &AuctionHouse.ResultResponse{
@@ -133,16 +137,20 @@ func (s *server) BroadcastWinner() {
 			},
 		}
 		if err := client.Send(response); err != nil {
-			log.Printf("Error sending result: %v", err)
+			log.Printf("Error sending result to client: %v", err)
+		} else {
+			log.Printf("Result sent to client")
 		}
 	}
 	s.ClearRegisteredUsers()
+	log.Printf("Clearing registered users")
 }
 
 func main() {
 	ip := "Local:50051" // Ip of the server
 	port := "50051"
-	go startServer(port, ip)
+	s := newServer()
+	go startServer(port, ip, s)
 
 	var userCommand string
 	for {
@@ -153,7 +161,7 @@ func main() {
 			CurrentHighestBid = 0
 			log.Printf("Auction started")
 
-			timeleft := 100
+			timeleft := 15
 			for timeleft > 0 {
 				timeleft--
 				time.Sleep(1 * time.Second)
@@ -162,7 +170,7 @@ func main() {
 
 			AuctionStatus = "Closed"
 			log.Printf("Auction closed")
-			AuctionServer.BroadcastWinner()
+			s.BroadcastWinner()
 		}
 	}
 }

@@ -35,6 +35,7 @@ func NewFrontend() *Frontend {
 }
 
 func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
+	log.Printf("SendBid called")
 	var response string
 	for _, client := range f.clients {
 		// Send the bid to the server
@@ -81,6 +82,7 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 
 // Method with own go routine that constantly looks for new messages from the server
 func (f *Frontend) SendResult() string {
+	log.Printf("SendResult called")
 	var response string
 
 	// Request the current highest bid from the server
@@ -93,11 +95,7 @@ func (f *Frontend) SendResult() string {
 
 		var resultInfo = result.GetResultResponse()
 
-		if resultInfo.Status == "Closed" {
-			response = fmt.Sprintf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resultInfo.Result, resultInfo.WinnerName)
-		} else {
-			response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
-		}
+		response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
 
 		// Print the result
 		log.Printf("Result received from server:")
@@ -106,4 +104,33 @@ func (f *Frontend) SendResult() string {
 
 	// Return general response here
 	return response
+}
+
+func (f *Frontend) ListenForWinner() {
+	log.Printf("Listen for winner called")
+	for _, client := range f.clients {
+		stream, err := client.SendBid(context.Background())
+		if err != nil {
+			log.Fatalf("Error starting bid stream: %v", err)
+		}
+
+		go func() {
+			for {
+				log.Printf("Listening for winner result:")
+				serverResponse, err := stream.Recv()
+				if err != nil {
+					log.Printf("Error receiving message: %v", err)
+					return
+				}
+				log.Printf("Received a winner result:")
+
+				switch resp := serverResponse.Response.(type) {
+				case *AuctionHouse.GeneralResponse_ResultResponse:
+					fmt.Printf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
+				default:
+					log.Printf("Received unexpected response type")
+				}
+			}
+		}()
+	}
 }

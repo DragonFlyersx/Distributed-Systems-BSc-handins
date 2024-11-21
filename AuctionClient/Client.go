@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var clientId string = os.Getenv("CLIENT_ID")
+var clientId string
 var bidfromclient int32 = 0
 
 type UserBidRequest struct {
@@ -21,6 +21,16 @@ type UserBidRequest struct {
 
 func main() {
 	frontend := Frontend.NewFrontend()
+
+	// Start listening for winner announcement
+	go frontend.ListenForWinner()
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Error getting hostname: %v", err)
+	}
+
+	clientId = hostname
 
 	var userCommand string
 
