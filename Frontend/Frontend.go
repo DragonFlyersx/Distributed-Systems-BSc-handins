@@ -109,28 +109,26 @@ func (f *Frontend) SendResult() string {
 func (f *Frontend) ListenForWinner() {
 	log.Printf("Listen for winner called")
 	for _, client := range f.clients {
-		stream, err := client.SendBid(context.Background())
-		if err != nil {
-			log.Fatalf("Error starting bid stream: %v", err)
-		}
-
-		go func() {
-			for {
-				log.Printf("Listening for winner result:")
-				serverResponse, err := stream.Recv()
-				if err != nil {
-					log.Printf("Error receiving message: %v", err)
-					return
-				}
-				log.Printf("Received a winner result:")
-
-				switch resp := serverResponse.Response.(type) {
-				case *AuctionHouse.GeneralResponse_ResultResponse:
-					fmt.Printf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
-				default:
-					log.Printf("Received unexpected response type")
-				}
+		for {
+			stream, err := client.SendBid(context.Background())
+			if err != nil {
+				log.Fatalf("Error starting bid stream: %v", err)
 			}
-		}()
+
+			log.Printf("Listening for winner result:")
+			serverResponse, err := stream.Recv()
+			if err != nil {
+				log.Printf("Error receiving message: %v", err)
+				return
+			}
+			log.Printf("Received a winner result:")
+
+			switch resp := serverResponse.Response.(type) {
+			case *AuctionHouse.GeneralResponse_ResultResponse:
+				fmt.Printf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
+			default:
+				log.Printf("Received unexpected response type")
+			}
+		}
 	}
 }
