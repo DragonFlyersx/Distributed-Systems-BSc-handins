@@ -14,6 +14,7 @@ var bidfromclient int32 = 0
 
 type Frontend struct {
 	clients []AuctionHouse.AuctionServiceClient
+	streams map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse]
 }
 
 func NewFrontend() *Frontend {
@@ -23,6 +24,8 @@ func NewFrontend() *Frontend {
 	nodeAddresses := []string{NodeOneAddress}
 
 	var clients []AuctionHouse.AuctionServiceClient
+	streams := make(map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse])
+
 	for _, address := range nodeAddresses {
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
@@ -30,8 +33,15 @@ func NewFrontend() *Frontend {
 		}
 		client := AuctionHouse.NewAuctionServiceClient(conn)
 		clients = append(clients, client)
+
+		// Ensures that we reuse the same stream for both bidding and listening.
+		stream, err := client.SendBid(context.Background())
+		if err != nil {
+			log.Fatalf("Error creating stream: %v", err)
+		}
+		streams[client] = stream
 	}
-	return &Frontend{clients: clients}
+	return &Frontend{clients: clients, streams: streams}
 }
 
 func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
@@ -39,12 +49,9 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 	var response string
 	for _, client := range f.clients {
 		// Send the bid to the server
-		stream, err := client.SendBid(context.Background())
-		if err != nil {
-			log.Fatalf("Error sending bid: %v", err)
-		}
+		stream := f.streams[client]
 
-		err = stream.Send(&AuctionHouse.UserBidRequest{
+		err := stream.Send(&AuctionHouse.UserBidRequest{
 			BidAmount:  bidRequest.BidAmount,  // The amount being bid
 			BidderName: bidRequest.BidderName, // The name of the bidder
 		})
@@ -110,12 +117,8 @@ func (f *Frontend) ListenForWinner() {
 	log.Printf("Listen for winner called")
 	for _, client := range f.clients {
 		for {
-			stream, err := client.SendBid(context.Background())
-			if err != nil {
-				log.Fatalf("Error starting bid stream: %v", err)
-			}
+			stream := f.streams[client]
 
-			log.Printf("Listening for winner result:")
 			serverResponse, err := stream.Recv()
 			if err != nil {
 				log.Printf("Error receiving message: %v", err)
@@ -125,9 +128,9 @@ func (f *Frontend) ListenForWinner() {
 
 			switch resp := serverResponse.Response.(type) {
 			case *AuctionHouse.GeneralResponse_ResultResponse:
-				fmt.Printf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
-			default:
-				log.Printf("Received unexpected response type")
+				fmt.Printf("The auction has ended! Winning bid is: %d from Bidder: %s\n",
+					resp.ResultResponse.Result,
+					resp.ResultResponse.WinnerName)
 			}
 		}
 	}

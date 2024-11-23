@@ -20,25 +20,28 @@ var AuctionStatus string = "Closed"
 
 type server struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
-	// clients map[AuctionHouse.AuctionService_SendBidServer]bool
-	clients []AuctionHouse.AuctionService_SendBidServer
+	clients map[AuctionHouse.AuctionService_SendBidServer]bool // chose map instead of slice as it is easier to check if a client is already in the map
+	// clients []AuctionHouse.AuctionService_SendBidServer
 }
 
 // Constructor for the server
 func newServer() *server {
 	return &server{
-		clients: make([]AuctionHouse.AuctionService_SendBidServer, 0),
-		// clients: make(map[AuctionHouse.AuctionService_SendBidServer]bool), // Instantiate the map
+		// clients: make([]AuctionHouse.AuctionService_SendBidServer, 0),
+		clients: make(map[AuctionHouse.AuctionService_SendBidServer]bool), // Instantiate the map
 	}
 }
 
 func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error { // receive bid from client
 	log.Printf("Server SendBid function called")
 
+	// s.clients = append(s.clients, stream)
 	// Add the client stream to the clients map
-	// s.clients[stream] = true
-	s.clients = append(s.clients, stream)
-	log.Printf("Client added. Total clients: %d", len(s.clients))
+	// if statement to check if the client is already in the map
+	if _, exists := s.clients[stream]; !exists {
+		s.clients[stream] = true
+		log.Printf("Client added. Total clients: %d", len(s.clients))
+	}
 
 	for {
 		userBidRequest, err := stream.Recv()
@@ -119,14 +122,15 @@ func startServer(port string, ip string, s *server) {
 }
 
 func (s *server) ClearRegisteredUsers() {
-	// s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
-	s.clients = make([]AuctionHouse.AuctionService_SendBidServer, 0)
+	s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
+	log.Printf("Total clients: %d", len(s.clients))
+	// s.clients = make([]AuctionHouse.AuctionService_SendBidServer, 0)
 }
 
 func (s *server) BroadcastWinner() {
 	log.Printf("BroadcastWinner function called")
 	log.Printf("Number of clients: %d", len(s.clients))
-	for _, client := range s.clients {
+	for client := range s.clients {
 		response := &AuctionHouse.GeneralResponse{
 			Response: &AuctionHouse.GeneralResponse_ResultResponse{
 				ResultResponse: &AuctionHouse.ResultResponse{

@@ -13,6 +13,7 @@ import (
 
 var clientId string
 var bidfromclient int32 = 0
+var haveBid bool = false
 
 type UserBidRequest struct {
 	BidAmount  int32
@@ -21,10 +22,6 @@ type UserBidRequest struct {
 
 func main() {
 	frontend := Frontend.NewFrontend()
-
-	// Start listening for winner announcement
-	go frontend.ListenForWinner()
-
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalf("Error getting hostname: %v", err)
@@ -44,6 +41,11 @@ func main() {
 		if userCommand == "Result" { // Request the current highest bid from the server
 			fmt.Print(frontend.SendResult())
 		} else if strings.HasPrefix(userCommand, "Bid") { // send Bid to the server
+			if !haveBid {
+				haveBid = true
+				// Start listening for winner announcement
+				go frontend.ListenForWinner()
+			}
 			// Parse the bid amount from the command
 			parts := strings.Split(userCommand, " ")
 			if len(parts) != 2 {
