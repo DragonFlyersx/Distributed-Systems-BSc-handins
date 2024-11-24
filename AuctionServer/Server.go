@@ -54,6 +54,8 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 
 		if AuctionStatus == "Closed" && restartAvailable == true {
 			restartAvailable = false
+			CurrentHighestBid = 0
+			CurrentHighestBidder = ""
 			go s.openAuction() // Start the auction
 		}
 
@@ -167,8 +169,6 @@ func (s *server) openAuction() {
 	}
 
 	AuctionStatus = "Closed"
-	CurrentHighestBid = 0
-	CurrentHighestBidder = ""
 	log.Printf("Auction closed")
 	s.BroadcastWinner()
 
@@ -178,8 +178,8 @@ func (s *server) openAuction() {
 }
 
 func main() {
-	ip := "Local:50051" // Ip of the server
-	port := "50051"
+	ip := "Local:50053" // Ip of the server
+	port := "50053"
 	s := newServer()
 	go startServer(port, ip, s)
 
