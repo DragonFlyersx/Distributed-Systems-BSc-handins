@@ -159,7 +159,7 @@ func (s *server) BroadcastWinner() {
 func (s *server) openAuction() {
 	AuctionStatus = "Open"
 	log.Printf("Auction started")
-	timeleft := 30
+	timeleft := 15
 	for timeleft > 0 {
 		timeleft--
 		time.Sleep(1 * time.Second)
@@ -172,14 +172,14 @@ func (s *server) openAuction() {
 	log.Printf("Auction closed")
 	s.BroadcastWinner()
 
-	// Wait for 10 seconds before allowing new bids to start a new auction
-	time.Sleep(10 * time.Second)
+	// Wait for 5 seconds before allowing new bids to start a new auction
+	time.Sleep(5 * time.Second)
 	restartAvailable = true
 }
 
 func main() {
-	ip := "Local:50053" // Ip of the server
-	port := "50053"
+	ip := "Local:50051" // Ip of the server
+	port := "50051"
 	s := newServer()
 	go startServer(port, ip, s)
 

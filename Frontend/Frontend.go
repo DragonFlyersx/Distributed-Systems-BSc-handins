@@ -64,10 +64,10 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		wg.Add(1)
 		go func(client AuctionHouse.AuctionServiceClient) {
 			defer wg.Done()
-			log.Printf("Creating new stream for client: %v", client)
+			//log.Printf("Creating new stream for client: %v", client)
 			stream, err := client.SendBid(context.Background())
 			if err != nil {
-				log.Printf("Error creating stream: %v", err)
+				//log.Printf("Error creating stream: %v", err)
 				return
 			}
 
@@ -76,7 +76,7 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 				BidderName: bidRequest.BidderName,
 			})
 			if err != nil {
-				log.Printf("Error sending bid: %v", err)
+				//log.Printf("Error sending bid: %v", err)
 				return
 			}
 
@@ -88,7 +88,7 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 			go func() {
 				serverResponse, err := stream.Recv()
 				if err != nil {
-					log.Printf("Error receiving bid: %v", err)
+					//log.Printf("Error receiving bid: %v", err)
 					ch <- nil
 				} else {
 					ch <- serverResponse
@@ -101,10 +101,10 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 					mu.Lock()
 					serverResponseSlice = append(serverResponseSlice, res)
 					mu.Unlock()
-					log.Printf("Appending response to slice")
+					//log.Printf("Appending response to slice")
 				}
 			case <-ctx.Done():
-				log.Printf("Timeout waiting for response from server: %v", client)
+				//log.Printf("Timeout waiting for response from server: %v", client)
 			}
 		}(client)
 	}
@@ -115,10 +115,10 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		switch resp := sliceResponse.Response.(type) {
 		case *AuctionHouse.GeneralResponse_BidResponse:
 			if resp.BidResponse.Ack {
-				log.Printf("Received ACK from server")
+				//log.Printf("Received ACK from server")
 				ackCounter++
 			} else {
-				log.Printf("Received NACK from server")
+				//log.Printf("Received NACK from server")
 				ackCounter--
 			}
 		case *AuctionHouse.GeneralResponse_ResultResponse:
@@ -141,26 +141,50 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 
 // Method with own go routine that constantly looks for new messages from the server
 func (f *Frontend) SendResult() string {
-	log.Printf("SendResult called")
+	//log.Printf("SendResult called")
 	var response string
 	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 	responseChan := make(chan *AuctionHouse.GeneralResponse, len(f.clients))
+	var wg sync.WaitGroup
 
 	// Request the current highest bid from the server
-	for _, client := range f.clients {
+	for i, client := range f.clients {
+		wg.Add(1)
 		go func(client AuctionHouse.AuctionServiceClient) {
-			result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			result, err := client.SendResult(ctx, &AuctionHouse.Empty{})
 			if err != nil {
-				log.Printf("Error starting result stream: %v", err)
+				//log.Printf("Error starting result stream: %v", err)
+				responseChan <- nil
+				// Remove dead client
+				mu.Lock()
+				f.clients = append(f.clients[:i], f.clients[i+1:]...)
+				delete(f.streams, client)
+				mu.Unlock()
+				return
 			}
-			responseChan <- result
+
+			select {
+			case responseChan <- result:
+			case <-ctx.Done():
+				//log.Printf("Timeout waiting for result from server: %v", client)
+				responseChan <- nil
+			}
 		}(client)
 	}
 
+	// Wait for all goroutines to finish
+	wg.Wait()
+	close(responseChan)
+
 	// Collect responses from all servers
-	for i := 0; i < len(f.clients); i++ {
-		serverResponse := <-responseChan
-		serverResponseSlice = append(serverResponseSlice, serverResponse)
+	for serverResponse := range responseChan {
+		if serverResponse != nil {
+			serverResponseSlice = append(serverResponseSlice, serverResponse)
+		}
 	}
 
 	// Determine the majority response
@@ -196,7 +220,7 @@ func (f *Frontend) ListenForWinner() {
 			stream := f.streams[client]
 			serverResponse, err := stream.Recv()
 			if err != nil {
-				log.Printf("Error receiving message from server: %v", err)
+				//log.Printf("Error receiving message from server: %v", err)
 				continue
 			}
 			serverResponseSlice = append(serverResponseSlice, serverResponse)
