@@ -159,7 +159,7 @@ func (s *server) BroadcastWinner() {
 func (s *server) openAuction() {
 	AuctionStatus = "Open"
 	log.Printf("Auction started")
-	timeleft := 60
+	timeleft := 30
 	for timeleft > 0 {
 		timeleft--
 		time.Sleep(1 * time.Second)
