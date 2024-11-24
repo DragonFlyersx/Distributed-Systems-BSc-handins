@@ -49,6 +49,10 @@ func NewFrontend() *Frontend {
 func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 	log.Printf("SendBid called")
 	var response string
+	var serverResponse *AuctionHouse.GeneralResponse
+	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
+	var ackCounter int = 0
+
 	for _, client := range f.clients {
 		// Send the bid to the server
 		stream := f.streams[client]
@@ -62,22 +66,40 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		}
 
 		// Receive the response from the server
-		serverResponse, err := stream.Recv()
+		serverResponse, err = stream.Recv()
 		if err != nil {
 			log.Fatalf("Error receiving bid: %v", err)
 		}
+		serverResponseSlice = append(serverResponseSlice, serverResponse)
+	}
 
-		switch resp := serverResponse.Response.(type) {
+	// Checks responses from all servers
+	for _, sliceResponse := range serverResponseSlice {
+		switch resp := sliceResponse.Response.(type) {
 		case *AuctionHouse.GeneralResponse_BidResponse:
 			if resp.BidResponse.Ack {
-				response = "[YOUR BID WAS ACCEPTED]\n"
+				// Increment the ackCounter if the bid was accepted
+				ackCounter++
 			} else {
-				response = "[YOUR BID WAS TOO LOW]\n"
+				// Decrement the ackCounter if the bid was too low to be accepted
+				ackCounter--
 			}
 		case *AuctionHouse.GeneralResponse_ResultResponse:
 			response = fmt.Sprintf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
 		}
 	}
+	// Check the ackCounter to determine the response
+	if ackCounter > 0 {
+		response = "[YOUR BID WAS ACCEPTED]\n"
+	} else if ackCounter < 0 {
+		response = "[YOUR BID WAS TOO LOW]\n"
+	} else if ackCounter == 0 {
+		// Used when only 2 servers are left, and gives conflicting responses
+		response = "[RECEIVED CONFLICTING ACK FROM SERVERS]\n"
+	}
+
+	// Clear slice
+	serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 
 	// Return general response here
 	return response
@@ -87,34 +109,53 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 func (f *Frontend) SendResult() string {
 	log.Printf("SendResult called")
 	var response string
+	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 
 	// Request the current highest bid from the server
 	for _, client := range f.clients {
-
 		result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
 		if err != nil {
 			log.Fatalf("Error starting result stream: %v", err)
 		}
 
-		var resultInfo = result.GetResultResponse()
-
-		response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", resultInfo.Status, resultInfo.Result, resultInfo.WinnerName)
-
+		// var resultInfo = result.GetResultResponse()
+		serverResponseSlice = append(serverResponseSlice, result)
 		// Print the result
 		log.Printf("Result received from server:")
-
 	}
 
-	// Return general response here
+	// Determine the majority response
+	responseCount := make(map[string]int)
+	var majorityResponse *AuctionHouse.ResultResponse
+
+	for _, sliceResponse := range serverResponseSlice {
+		switch resp := sliceResponse.Response.(type) {
+		case *AuctionHouse.GeneralResponse_ResultResponse:
+			resultKey := fmt.Sprintf("%d-%s-%s", resp.ResultResponse.Result, resp.ResultResponse.Status, resp.ResultResponse.WinnerName)
+			responseCount[resultKey]++
+			if majorityResponse == nil || responseCount[resultKey] > responseCount[fmt.Sprintf("%d-%s-%s", majorityResponse.Result, majorityResponse.Status, majorityResponse.WinnerName)] {
+				majorityResponse = resp.ResultResponse
+			}
+		}
+	}
+
+	if majorityResponse != nil {
+		response = fmt.Sprintf("Auction status: %s, Current highest bid: %d, Bidder: %s\n", majorityResponse.Status, majorityResponse.Result, majorityResponse.WinnerName)
+	} else {
+		response = "[RECEIVED CONFLICTING RESPONSES FROM SERVERS]\n"
+	}
+
 	return response
 }
 
 func (f *Frontend) ListenForWinner() {
+	var serverResponse *AuctionHouse.GeneralResponse
+	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
+
 	log.Printf("Listen for winner called")
 	for _, client := range f.clients {
+		stream := f.streams[client]
 		for {
-			stream := f.streams[client]
-
 			serverResponse, err := stream.Recv()
 			if err != nil {
 				log.Printf("Error receiving message: %v", err)
