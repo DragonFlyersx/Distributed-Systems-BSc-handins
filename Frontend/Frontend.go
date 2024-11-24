@@ -35,7 +35,7 @@ func NewFrontend() *Frontend {
 	for _, address := range nodeAddresses {
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
-			log.Fatalf("Failed to connect to server: %v", err)
+			//log.Fatalf("Failed to connect to server: %v", err)
 		}
 		client := AuctionHouse.NewAuctionServiceClient(conn)
 		clients = append(clients, client)
@@ -43,7 +43,7 @@ func NewFrontend() *Frontend {
 		// Ensures that we reuse the same stream for both bidding and listening.
 		stream, err := client.SendBid(context.Background())
 		if err != nil {
-			log.Fatalf("Error creating stream: %v", err)
+			//log.Fatalf("Error creating stream: %v", err)
 		}
 		// lock until all streams have been inserted
 		mu.Lock()
@@ -56,54 +56,68 @@ func NewFrontend() *Frontend {
 func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 	log.Printf("SendBid called")
 	var response string
-	var serverResponse *AuctionHouse.GeneralResponse
 	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 	var ackCounter int = 0
+	var wg sync.WaitGroup
 
 	for _, client := range f.clients {
+		wg.Add(1)
 		go func(client AuctionHouse.AuctionServiceClient) {
-			// Send the bid to the server
-			// log.Printf("Find stream from map")
-			// stream := f.streams[client]
-
+			defer wg.Done()
 			log.Printf("Creating new stream for client: %v", client)
 			stream, err := client.SendBid(context.Background())
 			if err != nil {
-				log.Fatalf("Error creating stream: %v", err)
+				log.Printf("Error creating stream: %v", err)
+				return
 			}
 
 			err = stream.Send(&AuctionHouse.UserBidRequest{
-				BidAmount:  bidRequest.BidAmount,  // The amount being bid
-				BidderName: bidRequest.BidderName, // The name of the bidder
+				BidAmount:  bidRequest.BidAmount,
+				BidderName: bidRequest.BidderName,
 			})
 			if err != nil {
-				log.Fatalf("Error sending bid: %v", err)
+				log.Printf("Error sending bid: %v", err)
+				return
 			}
 
-			// Receive the response from the server
-			log.Printf("Waiting for response from server")
-			serverResponse, err = stream.Recv()
-			if err != nil {
-				log.Fatalf("Error receiving bid: %v", err)
-			}
+			// Set a timeout for receiving the response
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-			serverResponseSlice = append(serverResponseSlice, serverResponse)
-			log.Printf("Appending response to slice")
+			ch := make(chan *AuctionHouse.GeneralResponse, 1)
+			go func() {
+				serverResponse, err := stream.Recv()
+				if err != nil {
+					log.Printf("Error receiving bid: %v", err)
+					ch <- nil
+				} else {
+					ch <- serverResponse
+				}
+			}()
+
+			select {
+			case res := <-ch:
+				if res != nil {
+					mu.Lock()
+					serverResponseSlice = append(serverResponseSlice, res)
+					mu.Unlock()
+					log.Printf("Appending response to slice")
+				}
+			case <-ctx.Done():
+				log.Printf("Timeout waiting for response from server: %v", client)
+			}
 		}(client)
 	}
 
-	time.Sleep(2 * time.Second)
+	wg.Wait()
 
-	// Checks responses from all servers
 	for _, sliceResponse := range serverResponseSlice {
 		switch resp := sliceResponse.Response.(type) {
 		case *AuctionHouse.GeneralResponse_BidResponse:
 			if resp.BidResponse.Ack {
-				// Increment the ackCounter if the bid was accepted
 				log.Printf("Received ACK from server")
 				ackCounter++
 			} else {
-				// Decrement the ackCounter if the bid was too low to be accepted
 				log.Printf("Received NACK from server")
 				ackCounter--
 			}
@@ -114,20 +128,14 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 
 	log.Printf("Size of slice is: %d", len(serverResponseSlice))
 
-	// Check the ackCounter to determine the response
 	if ackCounter > 0 {
 		response = "[YOUR BID WAS ACCEPTED]\n"
 	} else if ackCounter < 0 {
 		response = "[YOUR BID WAS TOO LOW]\n"
 	} else if ackCounter == 0 {
-		// Used when only 2 servers are left, and gives conflicting responses
 		response = "[RECEIVED CONFLICTING ACK FROM SERVERS]\n"
 	}
 
-	// Clear slice
-	serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
-
-	// Return general response here
 	return response
 }
 
@@ -143,7 +151,7 @@ func (f *Frontend) SendResult() string {
 		go func(client AuctionHouse.AuctionServiceClient) {
 			result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
 			if err != nil {
-				log.Fatalf("Error starting result stream: %v", err)
+				log.Printf("Error starting result stream: %v", err)
 			}
 			responseChan <- result
 		}(client)

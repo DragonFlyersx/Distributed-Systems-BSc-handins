@@ -167,6 +167,8 @@ func (s *server) openAuction() {
 	}
 
 	AuctionStatus = "Closed"
+	CurrentHighestBid = 0
+	CurrentHighestBidder = ""
 	log.Printf("Auction closed")
 	s.BroadcastWinner()
 
