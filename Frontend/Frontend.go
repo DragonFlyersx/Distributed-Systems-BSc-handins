@@ -18,11 +18,11 @@ type Frontend struct {
 }
 
 func NewFrontend() *Frontend {
-	NodeOneAddress := "localhost:50051" // Address to the server
-	//NodeTwoAddress := "localhost:50052"   // Address to the server
-	//	NodeThreeAddress := "localhost:50053" // Address to the server
-	// nodeAddresses := []string{NodeOneAddress, NodeTwoAddress, NodeThreeAddress}
-	nodeAddresses := []string{NodeOneAddress}
+	NodeOneAddress := "localhost:50051"   // Address to the server
+	NodeTwoAddress := "localhost:50052"   // Address to the server
+	NodeThreeAddress := "localhost:50053" // Address to the server
+	nodeAddresses := []string{NodeOneAddress, NodeTwoAddress, NodeThreeAddress}
+	// nodeAddresses := []string{NodeOneAddress}
 
 	var clients []AuctionHouse.AuctionServiceClient
 	// streams := make(map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse])
@@ -149,26 +149,54 @@ func (f *Frontend) SendResult() string {
 }
 
 func (f *Frontend) ListenForWinner() {
-	var serverResponse *AuctionHouse.GeneralResponse
-	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
+	for {
+		var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 
-	log.Printf("Listen for winner called")
-	for _, client := range f.clients {
-		stream := f.streams[client]
-		for {
+		// Collect responses from all servers
+		for _, client := range f.clients {
+			stream := f.streams[client]
 			serverResponse, err := stream.Recv()
 			if err != nil {
-				log.Printf("Error receiving message: %v", err)
-				return
+				log.Printf("Error receiving message from server: %v", err)
+				continue
 			}
-			log.Printf("Received a winner result:")
+			serverResponseSlice = append(serverResponseSlice, serverResponse)
+		}
 
-			switch resp := serverResponse.Response.(type) {
-			case *AuctionHouse.GeneralResponse_ResultResponse:
-				fmt.Printf("The auction has ended! Winning bid is: %d from Bidder: %s\n",
+		// Count responses and find majority
+		responseCount := make(map[string]int)
+		resultMap := make(map[string]*AuctionHouse.ResultResponse)
+		var majorityResult *AuctionHouse.ResultResponse
+		var maxCount int
+
+		// Process each response
+		for _, response := range serverResponseSlice {
+			if resp, ok := response.Response.(*AuctionHouse.GeneralResponse_ResultResponse); ok {
+				resultKey := fmt.Sprintf("%d-%s-%s",
 					resp.ResultResponse.Result,
+					resp.ResultResponse.Status,
 					resp.ResultResponse.WinnerName)
+
+				responseCount[resultKey]++
+				resultMap[resultKey] = resp.ResultResponse
+
+				// Update majority if this response has more occurrences
+				if responseCount[resultKey] > maxCount {
+					maxCount = responseCount[resultKey]
+					majorityResult = resp.ResultResponse
+				}
 			}
+		}
+
+		// Only announce if we have a clear majority
+		if majorityResult != nil && maxCount > len(f.clients)/2 {
+			fmt.Printf("[MAJORITY AGREEMENT] The auction has ended! "+
+				"Winning bid: %d from Bidder: %s (Status: %s)\n",
+				majorityResult.Result,
+				majorityResult.WinnerName,
+				majorityResult.Status)
+		} else {
+			log.Printf("[WARNING] No majority agreement on winner")
 		}
 	}
 }
