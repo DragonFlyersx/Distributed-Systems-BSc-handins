@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 )
 
+// maybe context cancellation for the streams
 var clientId string = ""
 var bidfromclient int32 = 0
 var mu sync.Mutex
