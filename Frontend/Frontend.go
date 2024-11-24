@@ -19,12 +19,14 @@ type Frontend struct {
 
 func NewFrontend() *Frontend {
 	NodeOneAddress := "localhost:50051" // Address to the server
-	// NodeTwoAddress := "localhost:50052"   // Address to the server
-	// NodeThreeAddress := "localhost:50053" // Address to the server
+	//NodeTwoAddress := "localhost:50052"   // Address to the server
+	//	NodeThreeAddress := "localhost:50053" // Address to the server
+	// nodeAddresses := []string{NodeOneAddress, NodeTwoAddress, NodeThreeAddress}
 	nodeAddresses := []string{NodeOneAddress}
 
 	var clients []AuctionHouse.AuctionServiceClient
-	streams := make(map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse])
+	// streams := make(map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse])
+	streams := make(map[AuctionHouse.AuctionServiceClient]AuctionHouse.AuctionService_SendBidClient)
 
 	for _, address := range nodeAddresses {
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
@@ -75,14 +77,8 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		case *AuctionHouse.GeneralResponse_ResultResponse:
 			response = fmt.Sprintf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
 		}
-
-		// // Print the response
-		// if serverResponse.GetBidResponse().Ack { // If the bid was accepted
-		// 	response = "[YOUR BID WAS ACCEPTED]\n"
-		// } else { // If the bid was too low
-		// 	response = "[YOUR BID WAS TOO LOW]\n"
-		// }
 	}
+
 	// Return general response here
 	return response
 }

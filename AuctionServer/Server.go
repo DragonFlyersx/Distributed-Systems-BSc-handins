@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -51,6 +50,10 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 		}
 
 		log.Printf("Bid received from %s : %v", userBidRequest.BidderName, userBidRequest.BidAmount)
+
+		if AuctionStatus == "Closed" {
+			go s.openAuction() // Start the auction
+		}
 
 		// Check if bid is higher than current highest bid
 		if userBidRequest.BidAmount > CurrentHighestBid {
@@ -150,31 +153,28 @@ func (s *server) BroadcastWinner() {
 	log.Printf("Clearing registered users")
 }
 
+// function for opening of the auction house
+func (s *server) openAuction() {
+	AuctionStatus = "Open"
+	log.Printf("Auction started")
+	timeleft := 15
+	for timeleft > 0 {
+		timeleft--
+		time.Sleep(1 * time.Second)
+		log.Printf("Time left: %d", timeleft)
+	}
+
+	AuctionStatus = "Closed"
+	log.Printf("Auction closed")
+	s.BroadcastWinner()
+}
+
 func main() {
 	ip := "Local:50051" // Ip of the server
 	port := "50051"
 	s := newServer()
 	go startServer(port, ip, s)
 
-	var userCommand string
-	for {
-		fmt.Scan(&userCommand)
-
-		if userCommand == "Start" && AuctionStatus == "Closed" { // Request the current highest bid from the server
-			AuctionStatus = "Open"
-			CurrentHighestBid = 0
-			log.Printf("Auction started")
-
-			timeleft := 15
-			for timeleft > 0 {
-				timeleft--
-				time.Sleep(1 * time.Second)
-				log.Printf("Time left: %d", timeleft)
-			}
-
-			AuctionStatus = "Closed"
-			log.Printf("Auction closed")
-			s.BroadcastWinner()
-		}
-	}
+	// Ensure the server runs indefinitely
+	select {}
 }
