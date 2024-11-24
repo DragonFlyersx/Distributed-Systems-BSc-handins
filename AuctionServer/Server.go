@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"sync"
 	"time"
 
 	AuctionHouse "main/Handin5"
@@ -22,7 +21,6 @@ var restartAvailable bool = true
 type server struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
 	clients map[AuctionHouse.AuctionService_SendBidServer]bool // chose map instead of slice as it is easier to check if a client is already in the map
-	mu      sync.Mutex
 	// clients []AuctionHouse.AuctionService_SendBidServer
 }
 
@@ -40,12 +38,11 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 	// s.clients = append(s.clients, stream)
 	// Add the client stream to the clients map
 	// if statement to check if the client is already in the map
-	s.mu.Lock()
 	if _, exists := s.clients[stream]; !exists {
 		s.clients[stream] = true
 		log.Printf("Client added. Total clients: %d", len(s.clients))
 	}
-	s.mu.Unlock()
+
 	for {
 		userBidRequest, err := stream.Recv()
 		if err != nil {
@@ -59,8 +56,7 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 			restartAvailable = false
 			go s.openAuction() // Start the auction
 		}
-		s.mu.Lock()
-		// time.Sleep(3 * time.Second)
+
 		// Check if bid is higher than current highest bid
 		if userBidRequest.BidAmount > CurrentHighestBid {
 			CurrentHighestBid = userBidRequest.BidAmount
@@ -76,7 +72,6 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 				log.Printf("Error sending ACK: %v", err)
 				return err
 			}
-			log.Printf("ACK sent to client")
 
 		} else {
 			log.Printf("Bid too low")
@@ -90,9 +85,7 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 				log.Printf("Error sending NACK: %v", err)
 				return err
 			}
-			log.Printf("N-ACK sent to client")
 		}
-		s.mu.Unlock()
 	}
 }
 

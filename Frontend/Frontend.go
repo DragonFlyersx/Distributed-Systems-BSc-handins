@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	AuctionHouse "main/Handin5"
-	"sync"
 
 	"google.golang.org/grpc"
 )
@@ -16,7 +15,6 @@ var bidfromclient int32 = 0
 type Frontend struct {
 	clients []AuctionHouse.AuctionServiceClient
 	streams map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse]
-	mu      sync.Mutex
 }
 
 func NewFrontend() *Frontend {
@@ -54,45 +52,33 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 	var ackCounter int = 0
 	responseChan := make(chan *AuctionHouse.GeneralResponse, len(f.clients))
-	var wg sync.WaitGroup
 
 	for _, client := range f.clients {
-		wg.Add(1)
 		go func(client AuctionHouse.AuctionServiceClient) {
-			defer wg.Done()
-			// Reuse the existing stream from the streams map
+			// Send the bid to the server
 			stream := f.streams[client]
-			if stream == nil {
-				log.Printf("Error: no stream found for client")
-				return
-			}
-
-			// Send the bid using the existing stream
-			err := stream.Send(bidRequest)
+			err := stream.Send(&AuctionHouse.UserBidRequest{
+				BidAmount:  bidRequest.BidAmount,  // The amount being bid
+				BidderName: bidRequest.BidderName, // The name of the bidder
+			})
 			if err != nil {
-				log.Printf("Error sending bid: %v", err)
-				return
+				log.Fatalf("Error sending bid: %v", err)
 			}
 
-			// Receive the response using the existing stream
-			log.Printf("Listening to response from server called")
+			// Receive the response from the server
 			serverResponse, err := stream.Recv()
 			if err != nil {
-				log.Printf("Error receiving bid: %v", err)
-				return
+				log.Fatalf("Error receiving bid: %v", err)
 			}
-			// Use mutex to synchronize access to the response channel
 			responseChan <- serverResponse
-			log.Printf("Sent response to channel")
 		}(client)
 	}
 
 	// Collect responses from all servers
-	for serverResponse := range responseChan {
+	for i := 0; i < len(f.clients); i++ {
+		serverResponse := <-responseChan
 		serverResponseSlice = append(serverResponseSlice, serverResponse)
 	}
-
-	log.Printf("Finished response collection")
 
 	// Checks responses from all servers
 	for _, sliceResponse := range serverResponseSlice {
@@ -109,8 +95,6 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 			response = fmt.Sprintf("The auction has ended! Winning bid is: %d from Bidder: %s\n", resp.ResultResponse.Result, resp.ResultResponse.WinnerName)
 		}
 	}
-	log.Printf("Finished response evaluation")
-
 	// Check the ackCounter to determine the response
 	if ackCounter > 0 {
 		response = "[YOUR BID WAS ACCEPTED]\n"
@@ -123,7 +107,6 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 
 	// Clear slice
 	serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
-	log.Printf("Returning response")
 
 	// Return general response here
 	return response
