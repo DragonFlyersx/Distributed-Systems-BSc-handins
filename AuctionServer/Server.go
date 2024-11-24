@@ -14,6 +14,7 @@ import (
 var CurrentHighestBidder string = ""
 var CurrentHighestBid int32 = 0
 var AuctionStatus string = "Closed"
+var restartAvailable bool = true
 
 // var AuctionServer server // Server instance
 
@@ -51,7 +52,8 @@ func (s *server) SendBid(stream AuctionHouse.AuctionService_SendBidServer) error
 
 		log.Printf("Bid received from %s : %v", userBidRequest.BidderName, userBidRequest.BidAmount)
 
-		if AuctionStatus == "Closed" {
+		if AuctionStatus == "Closed" && restartAvailable == true {
+			restartAvailable = false
 			go s.openAuction() // Start the auction
 		}
 
@@ -157,7 +159,7 @@ func (s *server) BroadcastWinner() {
 func (s *server) openAuction() {
 	AuctionStatus = "Open"
 	log.Printf("Auction started")
-	timeleft := 15
+	timeleft := 60
 	for timeleft > 0 {
 		timeleft--
 		time.Sleep(1 * time.Second)
@@ -167,11 +169,15 @@ func (s *server) openAuction() {
 	AuctionStatus = "Closed"
 	log.Printf("Auction closed")
 	s.BroadcastWinner()
+
+	// Wait for 10 seconds before allowing new bids to start a new auction
+	time.Sleep(10 * time.Second)
+	restartAvailable = true
 }
 
 func main() {
-	ip := "Local:50051" // Ip of the server
-	port := "50051"
+	ip := "Local:50053" // Ip of the server
+	port := "50053"
 	s := newServer()
 	go startServer(port, ip, s)
 

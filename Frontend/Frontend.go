@@ -49,27 +49,34 @@ func NewFrontend() *Frontend {
 func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 	log.Printf("SendBid called")
 	var response string
-	var serverResponse *AuctionHouse.GeneralResponse
 	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 	var ackCounter int = 0
+	responseChan := make(chan *AuctionHouse.GeneralResponse, len(f.clients))
 
 	for _, client := range f.clients {
-		// Send the bid to the server
-		stream := f.streams[client]
+		go func(client AuctionHouse.AuctionServiceClient) {
+			// Send the bid to the server
+			stream := f.streams[client]
+			err := stream.Send(&AuctionHouse.UserBidRequest{
+				BidAmount:  bidRequest.BidAmount,  // The amount being bid
+				BidderName: bidRequest.BidderName, // The name of the bidder
+			})
+			if err != nil {
+				log.Fatalf("Error sending bid: %v", err)
+			}
 
-		err := stream.Send(&AuctionHouse.UserBidRequest{
-			BidAmount:  bidRequest.BidAmount,  // The amount being bid
-			BidderName: bidRequest.BidderName, // The name of the bidder
-		})
-		if err != nil {
-			log.Fatalf("Error sending bid: %v", err)
-		}
+			// Receive the response from the server
+			serverResponse, err := stream.Recv()
+			if err != nil {
+				log.Fatalf("Error receiving bid: %v", err)
+			}
+			responseChan <- serverResponse
+		}(client)
+	}
 
-		// Receive the response from the server
-		serverResponse, err = stream.Recv()
-		if err != nil {
-			log.Fatalf("Error receiving bid: %v", err)
-		}
+	// Collect responses from all servers
+	for i := 0; i < len(f.clients); i++ {
+		serverResponse := <-responseChan
 		serverResponseSlice = append(serverResponseSlice, serverResponse)
 	}
 
@@ -110,18 +117,23 @@ func (f *Frontend) SendResult() string {
 	log.Printf("SendResult called")
 	var response string
 	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
+	responseChan := make(chan *AuctionHouse.GeneralResponse, len(f.clients))
 
 	// Request the current highest bid from the server
 	for _, client := range f.clients {
-		result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
-		if err != nil {
-			log.Fatalf("Error starting result stream: %v", err)
-		}
+		go func(client AuctionHouse.AuctionServiceClient) {
+			result, err := client.SendResult(context.Background(), &AuctionHouse.Empty{})
+			if err != nil {
+				log.Fatalf("Error starting result stream: %v", err)
+			}
+			responseChan <- result
+		}(client)
+	}
 
-		// var resultInfo = result.GetResultResponse()
-		serverResponseSlice = append(serverResponseSlice, result)
-		// Print the result
-		log.Printf("Result received from server:")
+	// Collect responses from all servers
+	for i := 0; i < len(f.clients); i++ {
+		serverResponse := <-responseChan
+		serverResponseSlice = append(serverResponseSlice, serverResponse)
 	}
 
 	// Determine the majority response
