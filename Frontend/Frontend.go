@@ -62,9 +62,16 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 	for _, client := range f.clients {
 		go func(client AuctionHouse.AuctionServiceClient) {
 			// Send the bid to the server
-			log.Printf("Find stream from map")
-			stream := f.streams[client]
-			err := stream.Send(&AuctionHouse.UserBidRequest{
+			// log.Printf("Find stream from map")
+			// stream := f.streams[client]
+
+			log.Printf("Creating new stream for client: %v", client)
+			stream, err := client.SendBid(context.Background())
+			if err != nil {
+				log.Fatalf("Error creating stream: %v", err)
+			}
+
+			err = stream.Send(&AuctionHouse.UserBidRequest{
 				BidAmount:  bidRequest.BidAmount,  // The amount being bid
 				BidderName: bidRequest.BidderName, // The name of the bidder
 			})
