@@ -1,7 +1,7 @@
-# Distributed active replication of auctionhouse implementation
+# Distributed active replication of auction house implementation
 This is a project for our handin 5 in Distributed Systems.
-We had to implement a System that works as a auctionhouse and uses replication
-We have chosen to use active replication meaning we have a client, a frontend, and 3 servers/nodes running. This code is able to sustain a node failure or absense of a node.
+We had to implement a System that works as an auction house and uses replication
+We have chosen to use active replication meaning we have a client, a frontend, and 3 servers/nodes running. This code can sustain a node failure or absence of a node.
 
 ## How to run
 1. Open the `Server.go` file and specify the ip-address/ port of the server
@@ -14,7 +14,7 @@ a. (You will need to do this 3 times for the 3 servers.)
 
 4. Run the `Client.go` file by typing `go run .\AuctionClient\Client.go`
 
-a. Now you can use the command `bid` specified with an amount after, this will start the auction. You can also use the `result` to see the status of the auction 
+a. Now you can use the command `Bid` specified with an amount after, this will start the auction. You can also use the `Result` to see the status of the auction 
 
 ## Authors
 - [@DragonFlyersx](https://github.com/DragonFlyersx)
