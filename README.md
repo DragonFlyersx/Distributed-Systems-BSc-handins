@@ -1,14 +1,20 @@
-# Distributed Mutual Exclusion in a Token Ring implementation
-This is a project for our handin 4 in Distributed Systems.
-The application implements the Token Ring algorithm to determine which client has access to a critical section.
+# Distributed active replication of auctionhouse implementation
+This is a project for our handin 5 in Distributed Systems.
+We had to implement a System that works as a auctionhouse and uses replication
+We have chosen to use active replication meaning we have a client, a frontend, and 3 servers/nodes running. This code is able to sustain a node failure or absense of a node.
 
 ## How to run
-1. Open the `Node.go` file and specify the ip-address to the node you want to link up to.
-a. (make sure that the person connecting to you have your ip-address)
-2. Run the `Node.go` file by typing `go run .\Node\Node.go`
-3. To initialize the token getting passed around in the ring, you will have to type `A`.
-a. Now the token is being passed around in the circle of clients.
-4. To access the critical section, you can type `A`, and it will begin to pass around your token to compare and finally give you access.
+1. Open the `Server.go` file and specify the ip-address/ port of the server
+
+2. Run the `Server.go` file by typing `go run .\AuctionServer\Server.go`
+
+a. (You will need to do this 3 times for the 3 servers.)
+
+3. Open the `frontend.go` and make sure the ip - address are correct with the servers.
+
+4. Run the `Client.go` file by typing `go run .\AuctionClient\Client.go`
+
+a. Now you can use the command `bid` specified with an amount after, this will start the auction. You can also use the `result` to see the status of the auction 
 
 ## Authors
 - [@DragonFlyersx](https://github.com/DragonFlyersx)
@@ -16,4 +22,3 @@ a. Now the token is being passed around in the circle of clients.
 - [@RasmusAChr](https://github.com/RasmusAChr)
 - [@niko391a](https://github.com/niko391a)
 ![Logo](https://github.com/user-attachments/assets/b6a7a068-c6be-4760-ac28-969adc7b6371)
-
