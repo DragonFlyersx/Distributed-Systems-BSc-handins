@@ -26,7 +26,6 @@ func NewFrontend() *Frontend {
 	NodeTwoAddress := "localhost:50052"   // Address to the server
 	NodeThreeAddress := "localhost:50053" // Address to the server
 	nodeAddresses := []string{NodeOneAddress, NodeTwoAddress, NodeThreeAddress}
-	// nodeAddresses := []string{NodeOneAddress}
 
 	var clients []AuctionHouse.AuctionServiceClient
 	// streams := make(map[AuctionHouse.AuctionServiceClient]grpc.BidiStreamingClient[AuctionHouse.UserBidRequest, AuctionHouse.GeneralResponse])
@@ -35,7 +34,7 @@ func NewFrontend() *Frontend {
 	for _, address := range nodeAddresses {
 		conn, err := grpc.Dial(address, grpc.WithInsecure())
 		if err != nil {
-			//log.Fatalf("Failed to connect to server: %v", err)
+
 		}
 		client := AuctionHouse.NewAuctionServiceClient(conn)
 		clients = append(clients, client)
@@ -43,7 +42,7 @@ func NewFrontend() *Frontend {
 		// Ensures that we reuse the same stream for both bidding and listening.
 		stream, err := client.SendBid(context.Background())
 		if err != nil {
-			//log.Fatalf("Error creating stream: %v", err)
+
 		}
 		// lock until all streams have been inserted
 		mu.Lock()
@@ -64,10 +63,10 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		wg.Add(1)
 		go func(client AuctionHouse.AuctionServiceClient) {
 			defer wg.Done()
-			//log.Printf("Creating new stream for client: %v", client)
+
 			stream, err := client.SendBid(context.Background())
 			if err != nil {
-				//log.Printf("Error creating stream: %v", err)
+
 				return
 			}
 
@@ -76,7 +75,7 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 				BidderName: bidRequest.BidderName,
 			})
 			if err != nil {
-				//log.Printf("Error sending bid: %v", err)
+
 				return
 			}
 
@@ -88,7 +87,7 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 			go func() {
 				serverResponse, err := stream.Recv()
 				if err != nil {
-					//log.Printf("Error receiving bid: %v", err)
+
 					ch <- nil
 				} else {
 					ch <- serverResponse
@@ -101,10 +100,10 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 					mu.Lock()
 					serverResponseSlice = append(serverResponseSlice, res)
 					mu.Unlock()
-					//log.Printf("Appending response to slice")
+
 				}
 			case <-ctx.Done():
-				//log.Printf("Timeout waiting for response from server: %v", client)
+
 			}
 		}(client)
 	}
@@ -115,10 +114,10 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 		switch resp := sliceResponse.Response.(type) {
 		case *AuctionHouse.GeneralResponse_BidResponse:
 			if resp.BidResponse.Ack {
-				//log.Printf("Received ACK from server")
+
 				ackCounter++
 			} else {
-				//log.Printf("Received NACK from server")
+
 				ackCounter--
 			}
 		case *AuctionHouse.GeneralResponse_ResultResponse:
@@ -141,7 +140,6 @@ func (f *Frontend) SendBid(bidRequest *AuctionHouse.UserBidRequest) string {
 
 // Method with own go routine that constantly looks for new messages from the server
 func (f *Frontend) SendResult() string {
-	//log.Printf("SendResult called")
 	var response string
 	var serverResponseSlice = make([]*AuctionHouse.GeneralResponse, 0)
 	responseChan := make(chan *AuctionHouse.GeneralResponse, len(f.clients))
@@ -157,7 +155,6 @@ func (f *Frontend) SendResult() string {
 
 			result, err := client.SendResult(ctx, &AuctionHouse.Empty{})
 			if err != nil {
-				//log.Printf("Error starting result stream: %v", err)
 				responseChan <- nil
 				// Remove dead client
 				mu.Lock()
@@ -170,7 +167,6 @@ func (f *Frontend) SendResult() string {
 			select {
 			case responseChan <- result:
 			case <-ctx.Done():
-				//log.Printf("Timeout waiting for result from server: %v", client)
 				responseChan <- nil
 			}
 		}(client)
@@ -220,7 +216,6 @@ func (f *Frontend) ListenForWinner() {
 			stream := f.streams[client]
 			serverResponse, err := stream.Recv()
 			if err != nil {
-				//log.Printf("Error receiving message from server: %v", err)
 				continue
 			}
 			serverResponseSlice = append(serverResponseSlice, serverResponse)

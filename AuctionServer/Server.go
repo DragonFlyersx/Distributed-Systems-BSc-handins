@@ -21,13 +21,12 @@ var restartAvailable bool = true
 type server struct {
 	AuctionHouse.UnimplementedAuctionServiceServer
 	clients map[AuctionHouse.AuctionService_SendBidServer]bool // chose map instead of slice as it is easier to check if a client is already in the map
-	// clients []AuctionHouse.AuctionService_SendBidServer
+
 }
 
 // Constructor for the server
 func newServer() *server {
 	return &server{
-		// clients: make([]AuctionHouse.AuctionService_SendBidServer, 0),
 		clients: make(map[AuctionHouse.AuctionService_SendBidServer]bool), // Instantiate the map
 	}
 }
@@ -131,7 +130,7 @@ func startServer(port string, ip string, s *server) {
 func (s *server) ClearRegisteredUsers() {
 	s.clients = make(map[AuctionHouse.AuctionService_SendBidServer]bool)
 	log.Printf("Total clients: %d", len(s.clients))
-	// s.clients = make([]AuctionHouse.AuctionService_SendBidServer, 0)
+
 }
 
 func (s *server) BroadcastWinner() {
@@ -161,7 +160,7 @@ func (s *server) BroadcastWinner() {
 func (s *server) openAuction() {
 	AuctionStatus = "Open"
 	log.Printf("Auction started")
-	timeleft := 15
+	timeleft := 100
 	for timeleft > 0 {
 		timeleft--
 		time.Sleep(1 * time.Second)
@@ -178,8 +177,8 @@ func (s *server) openAuction() {
 }
 
 func main() {
-	ip := "Local:50053" // Ip of the server
-	port := "50053"
+	ip := "Local:50051" // Ip of the server
+	port := "50051"
 	s := newServer()
 	go startServer(port, ip, s)
 
